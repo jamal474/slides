@@ -5,25 +5,21 @@
   font-size: 16px !important; line-height: 1.5 !important; margin: 0 !important; padding: 0 !important;
   font-family: "trebuchet ms", verdana, arial, sans-serif !important; letter-spacing: normal !important; text-transform: none !important;
 }
-.mermaid svg .node rect, .mermaid svg .node polygon, .mermaid svg .node circle, .mermaid svg .node path.basic { fill: var(--surface0) !important; stroke: var(--accent) !important; }
-.mermaid svg .cluster rect { fill: var(--mantle) !important; stroke: var(--surface2) !important; }
-.mermaid svg .edgeLabel, .mermaid svg .edgeLabel p, .mermaid svg .labelBkg { background: var(--base) !important; background-color: var(--base) !important; }
-.mermaid svg .nodeLabel, .mermaid svg .nodeLabel p { color: var(--text) !important; }
+.mermaid svg .node rect, .mermaid svg .node polygon, .mermaid svg .node circle, .mermaid svg .node path.basic {fill: var(--surface0) !important; stroke: var(--accent) !important; }
+.mermaid svg .cluster rect {fill: var(--mantle) !important; stroke: var(--surface2) !important; }
+.mermaid svg .edgeLabel, .mermaid svg .edgeLabel p, .mermaid svg .labelBkg {background: var(--base) !important; background-color: var(--base) !important; }
+.mermaid svg .nodeLabel, .mermaid svg .nodeLabel p {color: var(--text) !important; }
 </style>
 
-# Redis, From Zero to Deep Dive
+# Redis
 
-### An illustrated guide for complete beginners
+### An in-memory data structure server
 
-<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:28px">
-<span style="background:var(--surface0);border:1px solid var(--red);border-radius:999px;padding:6px 16px">🧠 In-memory</span>
-<span style="background:var(--surface0);border:1px solid var(--peach);border-radius:999px;padding:6px 16px">⚡ Sub-millisecond</span>
-<span style="background:var(--surface0);border:1px solid var(--green);border-radius:999px;padding:6px 16px">🧰 Data structures</span>
-<span style="background:var(--surface0);border:1px solid var(--blue);border-radius:999px;padding:6px 16px">🐍 Python · ⚙️ C++</span>
-<span style="background:var(--surface0);border:1px solid var(--mauve);border-radius:999px;padding:6px 16px">🗄️ vs LevelDB</span>
-</div>
+<p style="color:var(--subtext0);max-width:62ch;margin-top:24px">Nine parts, from what a database is to cluster internals: the data types, how the
+server works inside, caching, real-world patterns, code in Python and C++, scaling,
+and how Redis compares with Google's LevelDB.</p>
 
-<!-- notes: Welcome. This deck starts from "what is a database" and ends at clustering, persistence internals and LevelDB's LSM tree. Each part builds on the previous one. -->
+<!-- notes: This deck starts from "what is a database" and ends at clustering, persistence internals and LevelDB's LSM tree. Each part builds on the previous one. -->
 
 ---
 
@@ -31,23 +27,23 @@
 
 Difficulty rises as you go. Each part builds on the one before it.
 
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px">
-<div style="background:var(--surface0);border-left:6px solid var(--green);border-radius:12px;padding:12px 18px"><b>🟢 Part 1 · What is Redis?</b><br><small>databases, RAM vs disk, first commands</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--green);border-radius:12px;padding:12px 18px"><b>🟢 Part 2 · Data types</b><br><small>strings, lists, hashes, sets, sorted sets, streams…</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--yellow);border-radius:12px;padding:12px 18px"><b>🟡 Part 3 · How it works</b><br><small>protocol, event loop, encodings, expiry, persistence</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--yellow);border-radius:12px;padding:12px 18px"><b>🟡 Part 4 · Redis as a cache</b><br><small>patterns, TTLs, stampede, penetration, avalanche</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--peach);border-radius:12px;padding:12px 18px"><b>🟠 Part 5 · Use cases</b><br><small>sessions, rate limits, leaderboards, locks, queues, AI</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--peach);border-radius:12px;padding:12px 18px"><b>🟠 Part 6 · Python & C++</b><br><small>redis-py, hiredis, redis-plus-plus</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--red);border-radius:12px;padding:12px 18px"><b>🔴 Part 7 · Scaling & HA</b><br><small>replication, Sentinel, Cluster</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--red);border-radius:12px;padding:12px 18px"><b>🔴 Part 8 · Redis vs LevelDB</b><br><small>LSM trees, SSTables, compaction, trade-offs</small></div>
-<div style="background:var(--surface0);border-left:6px solid var(--mauve);border-radius:12px;padding:12px 18px"><b>🏁 Part 9 · Production & wrap-up</b><br><small>config, monitoring, quiz, learning path</small></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px">
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 1 · basics</div><b>What is Redis?</b><br><small style="color:var(--subtext0)">databases, RAM vs disk, first commands</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 2 · basics</div><b>Data types</b><br><small style="color:var(--subtext0)">strings, lists, hashes, sets, sorted sets, streams</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 3 · internals</div><b>How it works</b><br><small style="color:var(--subtext0)">protocol, event loop, encodings, expiry, persistence</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 4 · internals</div><b>Redis as a cache</b><br><small style="color:var(--subtext0)">patterns, TTLs, stampede, penetration, avalanche</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 5 · practice</div><b>Use cases</b><br><small style="color:var(--subtext0)">sessions, rate limits, leaderboards, locks, queues</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 6 · practice</div><b>Python & C++</b><br><small style="color:var(--subtext0)">redis-py, hiredis, redis-plus-plus</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 7 · advanced</div><b>Scaling & HA</b><br><small style="color:var(--subtext0)">replication, Sentinel, Cluster</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 8 · advanced</div><b>Redis vs LevelDB</b><br><small style="color:var(--subtext0)">LSM trees, SSTables, compaction, trade-offs</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:12px 16px"><div style="font-family:var(--font-mono);font-size:0.7em;letter-spacing:.09em;text-transform:uppercase;color:var(--overlay1)">Part 9 · advanced</div><b>Production</b><br><small style="color:var(--subtext0)">config, monitoring, cheat sheet, learning path</small></div>
 </div>
 
-🟢 beginner → 🟡 intermediate → 🟠 practical → 🔴 advanced
+<small style="color:var(--overlay1)">basics → internals → practice → advanced</small>
 
 ---
 
-# Part 1 · 🟢 What Is Redis?
+# Part 1 · What Is Redis?
 
 *Starting from absolute zero*
 
@@ -59,7 +55,7 @@ A **database** is a program whose whole job is to **store data** and **give it b
 
 ```mermaid
 flowchart LR
-  App["📱 Your app"] -- "save: user 42 = Asha" --> DB[("🗄️ Database")]
+  App["Your app"] -- "save: user 42 = Asha" --> DB[("Database")]
   App -- "load: user 42?" --> DB
   DB -- "Asha" --> App
 ```
@@ -94,7 +90,7 @@ A computer has a memory hierarchy. The closer to the CPU, the faster and the sma
 flowchart LR
   Q["SQL query"] --> P["Parser & planner"]
   P --> BP["Buffer pool<br/>(RAM, a partial copy)"]
-  BP -- "cache miss" --> D[("💾 Disk pages")]
+  BP -- "cache miss" --> D[("Disk pages")]
 ```
 
 - MySQL/PostgreSQL keep the **truth on disk** and use RAM as a helper
@@ -110,12 +106,12 @@ flowchart LR
 **Redis** = **RE**mote **DI**ctionary **S**erver
 
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px">
-<div style="background:var(--surface0);border-top:5px solid var(--red);border-radius:14px;padding:16px 20px"><b>🧠 In-memory</b><br>All data lives in RAM, so reads and writes take well under a millisecond.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--green);border-radius:14px;padding:16px 20px"><b>🔑 Key → value</b><br>Every piece of data is found by a unique key, like a giant dictionary.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--blue);border-radius:14px;padding:16px 20px"><b>🧰 Rich values</b><br>Values can be lists, sets, hashes, sorted sets, streams and more.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--peach);border-radius:14px;padding:16px 20px"><b>🌐 Server</b><br>A separate process your apps talk to over TCP. Many apps can share it.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--mauve);border-radius:14px;padding:16px 20px"><b>💾 Optional persistence</b><br>Can snapshot to disk or log every write, so data survives restarts.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--teal);border-radius:14px;padding:16px 20px"><b>📈 Scales out</b><br>Replication for copies, Cluster for splitting data across machines.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:16px 20px"><b>In-memory</b><br>All data lives in RAM, so reads and writes take well under a millisecond.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:16px 20px"><b>Key → value</b><br>Every piece of data is found by a unique key, like a giant dictionary.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:16px 20px"><b>Rich values</b><br>Values can be lists, sets, hashes, sorted sets, streams and more.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:16px 20px"><b>Server</b><br>A separate process your apps talk to over TCP. Many apps can share it.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:16px 20px"><b>Optional persistence</b><br>Can snapshot to disk or log every write, so data survives restarts.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:14px;padding:16px 20px"><b>Scales out</b><br>Replication for copies, Cluster for splitting data across machines.</div>
 </div>
 
 ---
@@ -145,6 +141,7 @@ Redis is that dictionary, but **shared over the network**, **very fast**, **opti
 ## A Short History
 
 ```mermaid
+%%{init: {"themeVariables": {"cScale0":"#313244","cScale1":"#313244","cScale2":"#313244","cScale3":"#313244","cScale4":"#313244","cScale5":"#313244","cScaleLabel0":"#cdd6f4","cScaleLabel1":"#cdd6f4","cScaleLabel2":"#cdd6f4","cScaleLabel3":"#cdd6f4","cScaleLabel4":"#cdd6f4","cScaleLabel5":"#cdd6f4"}}}%%
 timeline
   2009 : Salvatore Sanfilippo (antirez) writes Redis to speed up a real-time web analytics startup
   2010-2015 : Persistence, replication, Lua scripting, Sentinel (HA), Cluster (3.0)
@@ -163,15 +160,15 @@ timeline
 
 ## Who Uses Redis, and For What?
 
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:10px;text-align:center">
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">⚡</div><b>Caching</b><br><small>speed up slow DBs & APIs</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🔐</div><b>Sessions</b><br><small>login state for web apps</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🏆</div><b>Leaderboards</b><br><small>ranked scores in real time</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🚦</div><b>Rate limiting</b><br><small>stop API abuse</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">📬</div><b>Queues</b><br><small>background jobs</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">💬</div><b>Pub/Sub</b><br><small>chat, notifications</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">📍</div><b>Geo</b><br><small>"drivers near me"</small></div>
-<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🤖</div><b>AI</b><br><small>vector search, LLM caches</small></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px">
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Caching</b><br><small style="color:var(--subtext0)">speed up slow databases and APIs</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Sessions</b><br><small style="color:var(--subtext0)">login state for web apps</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Leaderboards</b><br><small style="color:var(--subtext0)">ranked scores in real time</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Rate limiting</b><br><small style="color:var(--subtext0)">stop API abuse</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Queues</b><br><small style="color:var(--subtext0)">background jobs</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Pub/Sub</b><br><small style="color:var(--subtext0)">chat, live notifications</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>Geo</b><br><small style="color:var(--subtext0)">"drivers near me"</small></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:10px;padding:14px 16px"><b>AI</b><br><small style="color:var(--subtext0)">vector search, LLM caches</small></div>
 </div>
 
 We'll build every one of these later in the deck.
@@ -273,7 +270,7 @@ OK
 
 ```mermaid
 flowchart LR
-  S["SET … EX 300"] --> L["⏳ key alive<br/>TTL counting down"] --> X["🗑️ key gone<br/>GET returns nil"]
+  S["SET … EX 300"] --> L["key alive<br/>TTL counting down"] --> X["key gone<br/>GET returns nil"]
 ```
 
 This one feature is what makes Redis a natural **cache** and **session store**.
@@ -293,12 +290,12 @@ Redis has no tables. Structure lives in your **key names**. The common conventio
 | `leaderboard:2026-09` | sorted set of scores this month |
 
 - Keep keys readable but not huge (they cost memory)
-- Keys can be any binary string up to 512 MB, but please don't do that 🙂
+- Keys can be any binary string up to 512 MB, but please don't do that
 - Redis has 16 numbered databases (`SELECT 0..15`); prefer **key prefixes** instead
 
 ---
 
-## Recap of Part 1 ✅
+## Recap of Part 1
 
 - Redis is an **in-memory key-value data structure server**
 - RAM is ~1000× faster than SSD, so Redis answers in **microseconds**
@@ -310,7 +307,7 @@ Redis has no tables. Structure lives in your **key names**. The common conventio
 
 ---
 
-# Part 2 · 🟢 Data Types
+# Part 2 · Data Types
 
 *Redis values are data structures, not just strings*
 
@@ -349,8 +346,8 @@ Pick the right structure and Redis does the hard work (sorting, uniqueness, rank
 The simplest type: a key maps to a **binary-safe** blob up to **512 MB**. Text, numbers, JSON, even JPEG bytes.
 
 <div style="display:flex;align-items:center;gap:16px;margin:14px 0">
-<div style="background:var(--surface1);border-radius:10px;padding:10px 18px;font-family:var(--font-mono)">user:42:name</div><div style="font-size:1.6em">→</div>
-<div style="background:var(--surface0);border:2px solid var(--green);border-radius:10px;padding:10px 18px;font-family:var(--font-mono)">"Asha"</div>
+<div style="background:var(--surface1);border-radius:10px;padding:10px 18px;font-family:var(--font-mono)">user:42:name</div><div style="font-size:1.3em;color:var(--overlay1)">→</div>
+<div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:10px 18px;font-family:var(--font-mono)">"Asha"</div>
 </div>
 
 ```text
@@ -374,9 +371,9 @@ An **ordered sequence** of strings. Push and pop at **both ends** in O(1).
 
 <div style="display:flex;align-items:center;gap:8px;margin:14px 0;font-family:var(--font-mono)">
 <span>LPUSH →</span>
-<span style="background:var(--surface0);border:2px solid var(--blue);border-radius:8px;padding:8px 14px">"c"</span>
-<span style="background:var(--surface0);border:2px solid var(--blue);border-radius:8px;padding:8px 14px">"b"</span>
-<span style="background:var(--surface0);border:2px solid var(--blue);border-radius:8px;padding:8px 14px">"a"</span>
+<span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:8px;padding:8px 14px">"c"</span>
+<span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:8px;padding:8px 14px">"b"</span>
+<span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:8px;padding:8px 14px">"a"</span>
 <span>← RPUSH</span>
 <span style="margin-left:18px;color:var(--subtext0)">index 0 · 1 · 2 (or -3 · -2 · -1)</span>
 </div>
@@ -401,7 +398,7 @@ A key that holds a **small map of field → value**. Perfect for objects.
 
 ```mermaid
 flowchart LR
-  K["🔑 user:42"] --> H
+  K["user:42"] --> H
   subgraph H["hash"]
     direction TB
     f1["name → Asha"]
@@ -430,11 +427,11 @@ HEXPIRE user:42 60 FIELDS 1 otp      # per-field TTL (Redis 7.4+)
 An **unordered collection of unique strings**. Adding a duplicate does nothing.
 
 <div style="display:flex;align-items:center;gap:22px;margin:12px 0;flex-wrap:wrap">
-<div style="border:2px dashed var(--blue);border-radius:18px;padding:10px 16px"><small>tags:post:1</small><br><span style="background:var(--surface0);border:2px solid var(--blue);border-radius:999px;padding:6px 14px">redis</span> <span style="background:var(--surface0);border:2px solid var(--blue);border-radius:999px;padding:6px 14px">cache</span> <span style="background:var(--surface0);border:2px solid var(--blue);border-radius:999px;padding:6px 14px">nosql</span></div>
-<div style="font-size:1.6em">∩</div>
+<div style="border:2px dashed var(--blue);border-radius:18px;padding:10px 16px"><small>tags:post:1</small><br><span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:999px;padding:6px 14px">redis</span> <span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:999px;padding:6px 14px">cache</span> <span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:999px;padding:6px 14px">nosql</span></div>
+<div style="font-size:1.3em;color:var(--overlay1)">∩</div>
 <div style="border:2px dashed var(--mauve);border-radius:18px;padding:10px 16px"><small>tags:post:2</small><br><span style="background:var(--surface0);border:2px solid var(--mauve);border-radius:999px;padding:6px 14px">redis</span> <span style="background:var(--surface0);border:2px solid var(--mauve);border-radius:999px;padding:6px 14px">python</span></div>
-<div style="font-size:1.6em">=</div>
-<div style="border:2px solid var(--green);border-radius:18px;padding:10px 16px"><small>SINTER</small><br><span style="background:var(--surface0);border:2px solid var(--green);border-radius:999px;padding:6px 14px">redis</span></div>
+<div style="font-size:1.3em;color:var(--overlay1)">=</div>
+<div style="border:1px solid var(--surface2);border-radius:18px;padding:10px 16px"><small>SINTER</small><br><span style="background:var(--surface0);border:1px solid var(--surface2);border-radius:999px;padding:6px 14px">redis</span></div>
 </div>
 
 ```text
@@ -451,15 +448,15 @@ SRANDMEMBER prizes 3                # random picks
 
 ---
 
-## 5 · Sorted Sets (ZSETs) ⭐
+## 5 · Sorted Sets (ZSETs)
 
 Like a set, but every member has a **score**. Members are always kept **sorted by score**.
 
 | Rank | Member | Score |
 | --- | --- | --- |
-| 🥇 0 | `priya` | 9820 |
-| 🥈 1 | `arjun` | 9410 |
-| 🥉 2 | `meera` | 8875 |
+| 0 | `priya` | 9820 |
+| 1 | `arjun` | 9410 |
+| 2 | `meera` | 8875 |
 | 3 | `kabir` | 7002 |
 
 ```text
@@ -486,8 +483,8 @@ flowchart LR
     direction LR
     e1["1726…-0<br/>item=pen"] --> e2["1726…-1<br/>item=ink"] --> e3["1727…-0<br/>item=pad"]
   end
-  S -- XREADGROUP --> G1["👷 worker-1"]
-  S -- XREADGROUP --> G2["👷 worker-2"]
+  S -- XREADGROUP --> G1["worker-1"]
+  S -- XREADGROUP --> G2["worker-2"]
 ```
 
 ```text
@@ -559,9 +556,9 @@ GEOSEARCH drivers FROMLONLAT 72.87 19.07 BYRADIUS 20 km ASC WITHDIST
 
 ```mermaid
 flowchart LR
-  U["📍 rider"] -->|"within 20 km"| D1["🚗 d1 · 0.9 km"]
-  U --> D2["🚗 d2 · 17 km"]
-  U -.->|"too far"| D3["🚗 d3 (Pune)"]
+  U["rider"] -->|"within 20 km"| D1["d1 · 0.9 km"]
+  U --> D2["d2 · 17 km"]
+  U -.->|"too far"| D3["d3 (Pune)"]
 ```
 
 **Use for:** nearby drivers, stores, friends.
@@ -594,15 +591,15 @@ With the **Redis Query Engine** (`FT.CREATE`, `FT.SEARCH`) you can also index ha
 **"What do I need?"** → pick the structure.
 
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px">
-<div style="background:var(--surface0);border-left:6px solid var(--green);border-radius:12px;padding:12px 18px">A value or counter<br><b style="color:var(--green)">→ String</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--blue);border-radius:12px;padding:12px 18px">An object with fields<br><b style="color:var(--blue)">→ Hash / JSON</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--peach);border-radius:12px;padding:12px 18px">Arrival order, a queue<br><b style="color:var(--peach)">→ List · Stream</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--mauve);border-radius:12px;padding:12px 18px">Uniqueness, membership<br><b style="color:var(--mauve)">→ Set</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--yellow);border-radius:12px;padding:12px 18px">Ranking, by score or time<br><b style="color:var(--yellow)">→ Sorted Set</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--teal);border-radius:12px;padding:12px 18px">Count uniques cheaply<br><b style="color:var(--teal)">→ HyperLogLog</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--sky);border-radius:12px;padding:12px 18px">Yes/no per id<br><b style="color:var(--sky)">→ Bitmap</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--red);border-radius:12px;padding:12px 18px">Nearby things<br><b style="color:var(--red)">→ Geo</b></div>
-<div style="background:var(--surface0);border-left:6px solid var(--pink);border-radius:12px;padding:12px 18px">Similar things<br><b style="color:var(--pink)">→ Vector Set</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">A value or counter<br><b style="color:var(--accent-2, var(--blue))">→ String</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">An object with fields<br><b style="color:var(--accent-2, var(--blue))">→ Hash / JSON</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Arrival order, a queue<br><b style="color:var(--accent-2, var(--blue))">→ List · Stream</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Uniqueness, membership<br><b style="color:var(--accent-2, var(--blue))">→ Set</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Ranking, by score or time<br><b style="color:var(--accent-2, var(--blue))">→ Sorted Set</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Count uniques cheaply<br><b style="color:var(--accent-2, var(--blue))">→ HyperLogLog</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Yes/no per id<br><b style="color:var(--accent-2, var(--blue))">→ Bitmap</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Nearby things<br><b style="color:var(--accent-2, var(--blue))">→ Geo</b></div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:12px 18px">Similar things<br><b style="color:var(--accent-2, var(--blue))">→ Vector Set</b></div>
 </div>
 
 ---
@@ -625,7 +622,7 @@ MEMORY USAGE user:42         # bytes used
 
 ---
 
-## Recap of Part 2 ✅
+## Recap of Part 2
 
 | Type | Think of it as | Signature commands |
 | --- | --- | --- |
@@ -640,7 +637,7 @@ MEMORY USAGE user:42         # bytes used
 
 ---
 
-# Part 3 · 🟡 How Redis Works
+# Part 3 · How Redis Works
 
 *Under the hood: protocol, threads, memory, expiry, persistence*
 
@@ -651,17 +648,17 @@ MEMORY USAGE user:42         # bytes used
 ```mermaid
 flowchart LR
   subgraph Clients
-    C1["🐍 Python app"]
-    C2["⚙️ C++ service"]
-    C3["💻 redis-cli"]
+    C1["Python app"]
+    C2["C++ service"]
+    C3["redis-cli"]
   end
   C1 & C2 & C3 -- "TCP :6379<br/>RESP protocol" --> EL
   subgraph Server["Redis server process"]
-    EL["🔁 Event loop<br/>(one main thread)"] --> CMD["Command table<br/>SET, GET, ZADD…"]
-    CMD --> DS[("🧠 In-memory<br/>dictionary")]
-    DS -.-> RDB["💾 RDB snapshots"]
-    DS -.-> AOF["📜 Append-only file"]
-    DS -.-> REP["📡 Replicas"]
+    EL["Event loop<br/>(one main thread)"] --> CMD["Command table<br/>SET, GET, ZADD…"]
+    CMD --> DS[("In-memory<br/>dictionary")]
+    DS -.-> RDB["RDB snapshots"]
+    DS -.-> AOF["Append-only file"]
+    DS -.-> REP["Replicas"]
   end
 ```
 
@@ -702,11 +699,11 @@ Redis executes commands on **a single main thread**, one command at a time.
 
 ```mermaid
 flowchart LR
-  W["⏳ epoll / kqueue<br/>wait for ready sockets"] --> R["📥 read bytes from ready clients"]
-  R --> P["🧩 parse RESP into commands"]
-  P --> E["⚙️ execute each command<br/>against memory"]
-  E --> Wr["📤 write replies"]
-  Wr --> T["⏰ timers: expire keys,<br/>stats, background checks"]
+  W["epoll / kqueue<br/>wait for ready sockets"] --> R["read bytes from ready clients"]
+  R --> P["parse RESP into commands"]
+  P --> E["execute each command<br/>against memory"]
+  E --> Wr["write replies"]
+  Wr --> T["timers: expire keys,<br/>stats, background checks"]
   T --> W
 ```
 
@@ -717,10 +714,10 @@ This is the **reactor pattern**: a single thread watches thousands of sockets wi
 ## Why Is Single-Threaded So Fast?
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ No locks</b><br>Only one thread touches the data, so no mutexes, no deadlocks, no contention.</div>
-<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ No context switches</b><br>The CPU stays hot on one core with warm caches.</div>
-<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ Memory is the bottleneck, not CPU</b><br>Most commands take microseconds of CPU; network I/O dominates.</div>
-<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ Atomic for free</b><br>Every command runs start to finish with nobody else interleaving.</div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:14px 20px"><b>No locks</b><br>Only one thread touches the data, so no mutexes, no deadlocks, no contention.</div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:14px 20px"><b>No context switches</b><br>The CPU stays hot on one core with warm caches.</div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:14px 20px"><b>Memory is the bottleneck, not CPU</b><br>Most commands take microseconds of CPU; network I/O dominates.</div>
+<div style="background:var(--surface0);border-left:3px solid var(--surface2);border-radius:12px;padding:14px 20px"><b>Atomic for free</b><br>Every command runs start to finish with nobody else interleaving.</div>
 </div>
 
 A single instance commonly serves **100k+ simple operations per second**, and far more with pipelining.
@@ -736,11 +733,11 @@ Single-threaded **command execution** does not mean a single-threaded **process*
 ```mermaid
 flowchart LR
   subgraph P["redis-server"]
-    M["🧵 Main thread<br/>executes commands"]
-    IO["🧵🧵 I/O threads (6.0+)<br/>read/write sockets"]
-    BIO["🧵 Background (BIO)<br/>fsync, close files, lazy free"]
+    M["Main thread<br/>executes commands"]
+    IO["I/O threads (6.0+)<br/>read/write sockets"]
+    BIO["Background (BIO)<br/>fsync, close files, lazy free"]
   end
-  F["👶 Forked child<br/>RDB save / AOF rewrite"]
+  F["Forked child<br/>RDB save / AOF rewrite"]
   M -. fork .-> F
 ```
 
@@ -756,7 +753,7 @@ The keyspace is a **hash table**: hash the key, jump to a bucket, done. Average 
 
 <div style="display:flex;align-items:center;gap:14px;margin:12px 0">
 <div style="background:var(--surface1);border-radius:8px;padding:8px 14px;font-family:var(--font-mono)">"user:42"</div><div>→ hash() mod 8 = <b>5</b> →</div>
-<div style="display:grid;grid-template-columns:repeat(8,auto);gap:6px"><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">0</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">1</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">2</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">3</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">4</div><div style="background:var(--surface0);border:2px solid var(--green);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">5<br><small>user:42 → user:7</small></div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">6</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">7</div></div>
+<div style="display:grid;grid-template-columns:repeat(8,auto);gap:6px"><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">0</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">1</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">2</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">3</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">4</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">5<br><small>user:42 → user:7</small></div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">6</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">7</div></div>
 </div>
 
 **Incremental rehashing:** when the table fills up, Redis allocates a table twice as large and moves buckets **a few at a time** on each operation, so there's never a long pause.
@@ -822,7 +819,7 @@ Level 2:  HEAD ──────────▶ 30 ─────────�
 Level 1:  HEAD ──▶ 10 ──▶ 30 ──▶ 50 ──▶ 60 ──▶ 70 ──▶ 80 ──▶ 90 ──▶ NIL
 ```
 
-To find **60**: ride level 3 to 70 (too far) → drop to level 2: 30 → drop to level 1: 50 → 60 ✅
+To find **60**: ride level 3 to 70 (too far) → drop to level 2: 30 → drop to level 1: 50 → 60
 
 - Each node gets a random height (coin flips), so no complex rebalancing like trees
 - Nodes store **span** counts, so `ZRANK` is also O(log N)
@@ -836,13 +833,13 @@ How does Redis delete millions of expiring keys without scanning all of them?
 
 ```mermaid
 flowchart TB
-  subgraph Lazy["😴 Lazy (passive)"]
+  subgraph Lazy["Lazy (passive)"]
     direction LR
     G["GET k"] --> C{"expired?"}
     C -- yes --> D["delete, return nil"]
     C -- no --> V["return value"]
   end
-  subgraph Active["🏃 Active (background)"]
+  subgraph Active["Active (background)"]
     direction LR
     S["~10×/sec: sample 20 keys<br/>with a TTL"] --> E["delete expired ones"]
     E --> Q{">25% were expired?"}
@@ -864,7 +861,7 @@ Set a limit with `maxmemory 2gb`. When it's reached, `maxmemory-policy` decides 
 | Policy | Evicts | Good for |
 | --- | --- | --- |
 | `noeviction` (default) | nothing, writes get errors | primary data store |
-| `allkeys-lru` | least **recently** used key | **general cache** ⭐ |
+| `allkeys-lru` | least **recently** used key | **general cache** |
 | `allkeys-lfu` | least **frequently** used key | caches with stable "hot" keys |
 | `volatile-lru` / `volatile-lfu` | same, but only keys with a TTL | mixed cache + data |
 | `volatile-ttl` | key closest to expiring | short-lived data |
@@ -898,8 +895,8 @@ RAM is **volatile**: power loss or restart = empty Redis. Two ways to survive th
 
 ```mermaid
 flowchart LR
-  M[("🧠 memory")] -- "every N minutes<br/>full snapshot" --> RDB["📸 RDB file<br/>dump.rdb"]
-  M -- "every write<br/>appended" --> AOF["📜 AOF files<br/>appendonly.aof"]
+  M[("memory")] -- "every N minutes<br/>full snapshot" --> RDB["RDB file<br/>dump.rdb"]
+  M -- "every write<br/>appended" --> AOF["AOF files<br/>appendonly.aof"]
   RDB & AOF -- "on restart: load" --> M
 ```
 
@@ -944,7 +941,7 @@ appendfsync everysec     # always | everysec | no
 | `appendfsync` | Durability | Speed |
 | --- | --- | --- |
 | `always` | lose at most one write | slowest |
-| `everysec` ⭐ | lose ~1 second | fast |
+| `everysec` | lose ~1 second | fast |
 | `no` | OS decides (~30 s) | fastest |
 
 **AOF rewrite:** the log keeps growing (`INCR` × 1,000,000). A forked child writes the **minimal** set of commands that rebuilds current state (`SET counter 1000000`).
@@ -960,7 +957,7 @@ flowchart TD
   Q{"Can you lose<br/>all the data?"} -- "yes (pure cache)" --> N["Persistence off<br/>save '' · appendonly no"]
   Q -- no --> Q2{"Can you lose<br/>a few minutes?"}
   Q2 -- yes --> R["RDB only"]
-  Q2 -- "no, ≤ 1 s" --> B["AOF everysec + RDB<br/>(hybrid) ⭐"]
+  Q2 -- "no, ≤ 1 s" --> B["AOF everysec + RDB<br/>(hybrid) "]
 ```
 
 Remember: even with AOF, Redis is **not** a replacement for a transactional SQL database when every single write must be durable and queryable in complex ways.
@@ -1027,7 +1024,7 @@ end
 ```
 
 ```text
-EVAL "<script above>" 1 lock:order:7 "token-abc"
+EVAL "<script above>"1 lock:order:7 "token-abc"
 EVALSHA <sha1> 1 lock:order:7 "token-abc"    # run a cached script by hash
 ```
 
@@ -1041,10 +1038,10 @@ EVALSHA <sha1> 1 lock:order:7 "token-abc"    # run a cached script by hash
 
 ```mermaid
 flowchart LR
-  P["📣 PUBLISH news 'hello'"] --> CH(("channel<br/>news"))
-  CH --> S1["👂 subscriber 1"]
-  CH --> S2["👂 subscriber 2"]
-  CH -.->|"offline = misses it"| S3["💤 subscriber 3"]
+  P["PUBLISH news 'hello'"] --> CH(("channel<br/>news"))
+  CH --> S1["subscriber 1"]
+  CH --> S2["subscriber 2"]
+  CH -.->|"offline = misses it"| S3["subscriber 3"]
 ```
 
 ```text
@@ -1077,7 +1074,7 @@ sequenceDiagram
   participant R as Redis
   App->>R: CLIENT TRACKING ON
   App->>R: GET user:42
-  R-->>App: "Asha" (App caches it locally)
+  R-->>App: "Asha"(App caches it locally)
   Note over R: another client: SET user:42 "Asha K"
   R-->>App: invalidate user:42
   App->>App: drop local copy
@@ -1085,7 +1082,7 @@ sequenceDiagram
 
 ---
 
-## Recap of Part 3 ✅
+## Recap of Part 3
 
 - Clients speak **RESP** over TCP
 - **One main thread** + event loop → no locks, atomic commands; slow commands block all
@@ -1097,7 +1094,7 @@ sequenceDiagram
 
 ---
 
-# Part 4 · 🟡 Redis as a Cache
+# Part 4 · Redis as a Cache
 
 *The #1 reason people meet Redis*
 
@@ -1109,14 +1106,14 @@ A **cache** is a small, fast store that keeps copies of data that is **expensive
 
 ```mermaid
 flowchart LR
-  U["👤 User"] --> A["🖥️ App"]
-  A -- "1 · check (≈0.3 ms)" --> R[("⚡ Redis")]
-  A -- "2 · on miss (≈30 ms+)" --> DB[("🐢 Database / API")]
+  U["User"] --> A["App"]
+  A -- "1 · check (≈0.3 ms)" --> R[("Redis")]
+  A -- "2 · on miss (≈30 ms+)" --> DB[("Database / API")]
 ```
 
 Like keeping your most-used books **on your desk** instead of walking to the library each time.
 
-- **Hit** = found in the cache 🎉 · **Miss** = not found, fetch from the source
+- **Hit** = found in the cache · **Miss** = not found, fetch from the source
 - **Hit ratio** = hits ÷ (hits + misses). Aim high (often 90%+)
 
 ---
@@ -1126,20 +1123,20 @@ Like keeping your most-used books **on your desk** instead of walking to the lib
 Suppose the DB takes **50 ms**, Redis takes **0.5 ms**, and the hit ratio is **95%**:
 
 $$
-\text{avg latency} = 0.95 \times 0.5 + 0.05 \times (0.5 + 50) \approx 3 \text{ ms}
+\text{avg latency} = 0.95 \times 0.5 + 0.05 \times (0.5 + 50) \approx 3 \text{ms}
 $$
 
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px;text-align:center">
 <div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--green)"><b>~16×</b></div>faster on average</div>
 <div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--peach)"><b>20×</b></div>fewer DB queries</div>
-<div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--blue)"><b>💸</b></div>smaller DB bill, spikes absorbed</div>
+<div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--blue)"><b></b></div>smaller DB bill, spikes absorbed</div>
 </div>
 
 What to cache: DB query results, rendered pages, API responses, computed recommendations, auth tokens, ML model outputs.
 
 ---
 
-## Pattern 1 · Cache-Aside (Lazy Loading) ⭐
+## Pattern 1 · Cache-Aside (Lazy Loading)
 
 The app owns the logic. **Most common pattern.**
 
@@ -1151,7 +1148,7 @@ sequenceDiagram
   participant DB
   App->>Redis: GET product:7
   alt cache hit
-    Redis-->>App: data ✅
+    Redis-->>App: data
   else cache miss
     Redis-->>App: nil
     App->>DB: SELECT … WHERE id = 7
@@ -1160,7 +1157,7 @@ sequenceDiagram
   end
 ```
 
-✅ caches only what's requested · ✅ survives Redis outage · ⚠️ first hit misses · ⚠️ stale until TTL
+Caches only what is asked for and survives a Redis outage; but the first read always misses, and data stays stale until the TTL.
 
 ---
 
@@ -1170,7 +1167,7 @@ When data changes, **update the DB first, then delete the cache key**.
 
 ```mermaid
 flowchart LR
-  W["✏️ update product 7"] --> D1["1 · UPDATE in DB"] --> D2["2 · DEL product:7"]
+  W["update product 7"] --> D1["1 · UPDATE in DB"] --> D2["2 · DEL product:7"]
   D2 --> N["next read misses<br/>→ reloads fresh data"]
 ```
 
@@ -1194,7 +1191,7 @@ flowchart TB
     a2["App"] --> c2["Cache layer"] -- "write synchronously" --> d2[("DB")]
   end
   subgraph WB["Write-behind (write-back)"]
-    a3["App"] --> c3["Redis"] -. "async batch later" .-> d3[("DB")]
+    a3["App"] --> c3["Redis"] -. "async batch later".-> d3[("DB")]
   end
 ```
 
@@ -1226,14 +1223,14 @@ ttl = 600 + random.randint(0, 60)   # 10–11 minutes
 
 ## Problem 1 · Cache Stampede (Thundering Herd)
 
-A **hot key** expires → thousands of requests miss at once → all hit the DB 💥
+A **hot key** expires → thousands of requests miss at once → all hit the DB
 
 ```mermaid
 flowchart LR
   subgraph T["t = expiry"]
     R1["req"] & R2["req"] & R3["req"] & R4["req …×5000"] --> M["MISS"]
   end
-  M --> DB[("🔥 DB overloaded")]
+  M --> DB[("DB overloaded")]
 ```
 
 **Fixes**
@@ -1250,8 +1247,8 @@ Requests for keys that **don't exist anywhere** (e.g. `product:-1`, bots) always
 
 ```mermaid
 flowchart LR
-  B["🤖 GET product:999999"] --> R{"Redis"} -- miss --> DB[("DB: not found")]
-  DB -. "nothing cached" .-> R
+  B["GET product:999999"] --> R{"Redis"} -- miss --> DB[("DB: not found")]
+  DB -. "nothing cached".-> R
 ```
 
 **Fixes**
@@ -1272,8 +1269,8 @@ BF.EXISTS products:bf 999999       # 0 → reject immediately
 
 ```mermaid
 flowchart LR
-  E["⏰ 10:00:00<br/>100k keys expire"] --> DB[("💥 DB")]
-  X["❌ Redis node crash"] --> DB
+  E["10:00:00<br/>100k keys expire"] --> DB[("DB")]
+  X["Redis node crash"] --> DB
 ```
 
 **Fixes**
@@ -1289,8 +1286,8 @@ flowchart LR
 ## Problem 4 · Big Keys & Hot Keys
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-<div style="background:var(--surface0);border-top:5px solid var(--peach);border-radius:12px;padding:14px 20px"><b>🐘 Big key</b><br>A 50 MB string or a hash with 5M fields.<br><br>• slow to read, delete, replicate<br>• blocks the event loop<br><br><b>Fix:</b> split into chunks/buckets, use <code>UNLINK</code>, <code>HSCAN</code>, find them with <code>redis-cli --bigkeys</code></div>
-<div style="background:var(--surface0);border-top:5px solid var(--red);border-radius:12px;padding:14px 20px"><b>🔥 Hot key</b><br>One key getting a huge share of traffic (a celebrity's profile).<br><br>• one node / one CPU saturates<br><br><b>Fix:</b> local in-process cache, replicate as <code>key:{1..N}</code> copies and pick randomly, read from replicas, find with <code>redis-cli --hotkeys</code> (LFU)</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:12px;padding:14px 20px"><b>Big key</b><br>A 50 MB string or a hash with 5M fields.<br><br>• slow to read, delete, replicate<br>• blocks the event loop<br><br><b>Fix:</b> split into chunks/buckets, use <code>UNLINK</code>, <code>HSCAN</code>, find them with <code>redis-cli --bigkeys</code></div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:12px;padding:14px 20px"><b>Hot key</b><br>One key getting a huge share of traffic (a celebrity's profile).<br><br>• one node / one CPU saturates<br><br><b>Fix:</b> local in-process cache, replicate as <code>key:{1..N}</code> copies and pick randomly, read from replicas, find with <code>redis-cli --hotkeys</code> (LFU)</div>
 </div>
 
 ---
@@ -1321,13 +1318,13 @@ flowchart LR
 | Replication / HA | built in | none (client-side) |
 | Eviction | 8 policies, LRU & LFU | LRU (segmented) |
 | Max value | 512 MB | 1 MB default |
-| Scripting, pub/sub, streams | ✅ | ❌ |
+| Scripting, pub/sub, streams | yes | no |
 
 **Rule of thumb:** Memcached for a pure, simple, massive string cache; Redis for everything else (which is most cases).
 
 ---
 
-## Recap of Part 4 ✅
+## Recap of Part 4
 
 - **Cache-aside** is the default: read cache → miss → read DB → fill cache with TTL
 - On writes: **update DB, then delete the cache key**
@@ -1338,7 +1335,7 @@ flowchart LR
 
 ---
 
-# Part 5 · 🟠 Real-World Use Cases
+# Part 5 · Real-World Use Cases
 
 *How the data types become features*
 
@@ -1350,7 +1347,7 @@ Web servers are stateless; login state lives in Redis so **any server** can hand
 
 ```mermaid
 flowchart LR
-  B["🌐 Browser<br/>cookie: sid=8f3a"] --> LB["⚖️ Load balancer"]
+  B["Browser<br/>cookie: sid=8f3a"] --> LB["Load balancer"]
   LB --> S1["server 1"] & S2["server 2"] & S3["server 3"]
   S1 & S2 & S3 --> R[("Redis<br/>session:8f3a")]
 ```
@@ -1379,7 +1376,7 @@ if count > 100 → reject with HTTP 429
 ```mermaid
 flowchart LR
   subgraph m1["10:30 window"]
-    a["▮▮▮▮▮▮▮▮ 100 ✅"]
+    a["▮▮▮▮▮▮▮▮ 100 "]
   end
   subgraph m2["10:31 window"]
     b["▮▮ counter resets"]
@@ -1401,8 +1398,8 @@ flowchart LR
   W --> Z["ZREMRANGEBYSCORE: drop older"]
   Z --> C["ZCARD: count what's left"]
   C --> D{"under the limit?"}
-  D -- yes --> A["ZADD now ✅"]
-  D -- no --> R["429 ❌"]
+  D -- yes --> A["ZADD now "]
+  D -- no --> R["429 "]
 ```
 
 ```text
@@ -1430,10 +1427,10 @@ ZUNIONSTORE lb:month 4 lb:w1 lb:w2 lb:w3 lb:w4   # combine weeks
 ```
 
 <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;max-width:70%">
-<div style="background:linear-gradient(90deg,var(--yellow) 98%,transparent 0);color:var(--crust);border-radius:6px;padding:6px 12px"><b>🥇 priya · 9820</b></div>
-<div style="background:linear-gradient(90deg,var(--overlay1) 94%,transparent 0);color:var(--crust);border-radius:6px;padding:6px 12px"><b>🥈 arjun · 9410</b></div>
-<div style="background:linear-gradient(90deg,var(--peach) 89%,transparent 0);color:var(--crust);border-radius:6px;padding:6px 12px"><b>🥉 meera · 8875</b></div>
-<div style="background:linear-gradient(90deg,var(--surface1) 70%,transparent 0);border-radius:6px;padding:6px 12px">kabir · 7002</div>
+<div style="background:linear-gradient(90deg,var(--surface2) 98%,var(--surface0) 0);border-radius:6px;padding:6px 12px"><b>1 · priya — 9820</b></div>
+<div style="background:linear-gradient(90deg,var(--surface2) 94%,var(--surface0) 0);border-radius:6px;padding:6px 12px"><b>2 · arjun — 9410</b></div>
+<div style="background:linear-gradient(90deg,var(--surface2) 89%,var(--surface0) 0);border-radius:6px;padding:6px 12px"><b>3 · meera — 8875</b></div>
+<div style="background:linear-gradient(90deg,var(--surface2) 70%,var(--surface0) 0);border-radius:6px;padding:6px 12px">4 · kabir — 7002</div>
 </div>
 
 Millions of players, every operation **O(log N)**. A SQL `ORDER BY … LIMIT` on every page view can't compete.
@@ -1492,8 +1489,8 @@ A crashed worker's job stays in `processing` and can be retried.
 
 ```mermaid
 flowchart LR
-  U1["👩 Asha"] -- websocket --> WS1["WS server 1"]
-  U2["👨 Ravi"] -- websocket --> WS2["WS server 2"]
+  U1["Asha"] -- websocket --> WS1["WS server 1"]
+  U2["Ravi"] -- websocket --> WS2["WS server 2"]
   WS1 -- "PUBLISH room:7 'hi'" --> R(("Redis<br/>Pub/Sub"))
   R -- message --> WS2 -- push --> U2
   WS1 -- "XADD history:room:7" --> H[("Stream<br/>chat history")]
@@ -1508,12 +1505,12 @@ flowchart LR
 ## Use Case 7 · Analytics & Counting
 
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
-<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>📊 Page views</b><br><code>INCR views:post:9</code><br><code>HINCRBY views:2026-09-17 post:9 1</code></div>
-<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>👥 Unique visitors</b><br><code>PFADD uv:post:9 user42</code><br><code>PFCOUNT uv:post:9</code></div>
-<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>📅 Daily active users</b><br><code>SETBIT dau:0917 42 1</code><br><code>BITCOUNT dau:0917</code></div>
-<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>🔥 Trending</b><br><code>ZINCRBY trending:hour tag 1</code><br><code>ZREVRANGE … 0 9</code></div>
-<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>⏱️ Time series</b><br><code>TS.ADD temp:room1 * 24.5</code><br><code>TS.RANGE … AGGREGATION avg 60000</code></div>
-<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>🔝 Top-K / counts</b><br><code>TOPK.ADD</code>, <code>CMS.INCRBY</code><br>(probabilistic, tiny memory)</div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>Page views</b><br><code>INCR views:post:9</code><br><code>HINCRBY views:2026-09-17 post:9 1</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>Unique visitors</b><br><code>PFADD uv:post:9 user42</code><br><code>PFCOUNT uv:post:9</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>Daily active users</b><br><code>SETBIT dau:0917 42 1</code><br><code>BITCOUNT dau:0917</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>Trending</b><br><code>ZINCRBY trending:hour tag 1</code><br><code>ZREVRANGE … 0 9</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>Time series</b><br><code>TS.ADD temp:room1 * 24.5</code><br><code>TS.RANGE … AGGREGATION avg 60000</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>Top-K / counts</b><br><code>TOPK.ADD</code>, <code>CMS.INCRBY</code><br>(probabilistic, tiny memory)</div>
 </div>
 
 Counters are updated in real time; a batch job can flush them to a warehouse later.
@@ -1534,7 +1531,7 @@ r.geosearch("drivers:mumbai",
 
 ```mermaid
 flowchart LR
-  G["📍 lon/lat"] --> H["52-bit geohash<br/>(interleaved bits)"] --> Z["sorted-set score"] --> Q["range queries on<br/>neighbouring cells"]
+  G["lon/lat"] --> H["52-bit geohash<br/>(interleaved bits)"] --> Z["sorted-set score"] --> Q["range queries on<br/>neighbouring cells"]
 ```
 
 Nearby places share geohash **prefixes**, so a radius query becomes a few sorted-set range scans.
@@ -1545,9 +1542,9 @@ Nearby places share geohash **prefixes**, so a radius query becomes a few sorted
 
 ```mermaid
 flowchart LR
-  Q["❓ user question"] --> E["embed → vector"]
+  Q["user question"] --> E["embed → vector"]
   E --> V{"Redis vector search:<br/>similar question seen?"}
-  V -- "yes (similarity > 0.9)" --> A["return cached LLM answer 💸 saved"]
+  V -- "yes (similarity > 0.9)" --> A["return cached LLM answer saved"]
   V -- no --> L["call LLM"] --> S["store vector + answer"] --> A2["answer"]
 ```
 
@@ -1563,7 +1560,7 @@ flowchart LR
 | --- | --- |
 | Feature flags / config | Hash `flags` + Pub/Sub to broadcast changes |
 | Shopping cart | Hash `cart:{user}` field = product, value = qty |
-| "Recently viewed" | List `LPUSH` + `LTRIM 0 19` |
+| "Recently viewed"| List `LPUSH` + `LTRIM 0 19` |
 | Deduplication (idempotency) | `SET idem:{request-id} 1 NX EX 86400` |
 | Unique usernames | Set or `SET username:asha 42 NX` |
 | Delayed jobs / scheduler | Sorted set, score = run-at time; poll `ZRANGEBYSCORE 0 now` |
@@ -1572,7 +1569,7 @@ flowchart LR
 
 ---
 
-## Recap of Part 5 ✅
+## Recap of Part 5
 
 ```mermaid
 flowchart LR
@@ -1588,7 +1585,7 @@ flowchart LR
 
 ---
 
-# Part 6 · 🟠 Redis in Python & C++
+# Part 6 · Redis in Python & C++
 
 *From "hello" to production-style patterns*
 
@@ -1598,11 +1595,11 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  subgraph PY["🐍 Python"]
+  subgraph PY["Python"]
     p1["redis-py<br/>(official, sync + asyncio)"]
     p2["redis-om-python<br/>(object mapping)"]
   end
-  subgraph CPP["⚙️ C / C++"]
+  subgraph CPP["C / C++"]
     c1["hiredis<br/>(official, minimal C)"]
     c2["redis-plus-plus<br/>(modern C++17 on hiredis)"]
   end
@@ -1683,8 +1680,8 @@ def cached(prefix: str, ttl: int = 600):
             key = f"{prefix}:{':'.join(map(str, args))}"
             hit = r.get(key)
             if hit is not None:
-                return json.loads(hit)                 # ✅ cache hit
-            value = fn(*args)                          # ❌ miss → slow path
+                return json.loads(hit)                 # cache hit
+            value = fn(*args)                          # miss → slow path
             r.set(key, json.dumps(value), ex=ttl + random.randint(0, 60))
             return value
         return wrapper
@@ -1774,7 +1771,7 @@ def run_worker(name: str):
         for _stream, entries in resp or []:
             for entry_id, fields in entries:
                 charge(fields["order_id"], int(fields["amount"]))
-                r.xack(STREAM, GROUP, entry_id)       # ✅ done
+                r.xack(STREAM, GROUP, entry_id)       # done
 ```
 
 Unacknowledged entries stay in the **pending list** → recover them with `xautoclaim`.
@@ -1914,10 +1911,10 @@ std::string load_product_from_db(int id);               // slow: ~50 ms
 std::string get_product(Redis &redis, int id) {
     const std::string key = "product:" + std::to_string(id);
 
-    if (auto hit = redis.get(key)) {                     // ✅ hit
+    if (auto hit = redis.get(key)) {                     // hit
         return *hit;
     }
-    std::string json = load_product_from_db(id);         // ❌ miss
+    std::string json = load_product_from_db(id);         // miss
 
     static thread_local std::mt19937 rng{std::random_device{}()};
     std::uniform_int_distribution<int> jitter(0, 60);
@@ -1967,18 +1964,18 @@ while (true) sub.consume();               // blocks until a message arrives
 
 ## Client Best Practices (Any Language)
 
-- ✅ **Reuse connections**: one pooled client per process, not one per request
-- ✅ **Set timeouts** (connect + socket) so a slow Redis can't hang your app
-- ✅ **Pipeline** bulk operations; use `MGET`/`MSET`/`HMGET`
-- ✅ **Handle failures**: on Redis errors in a cache path, fall back to the DB
-- ✅ **Serialize consistently** (JSON, MessagePack, protobuf) and version your keys: `v2:product:7`
-- ✅ **Retry with backoff** on connection errors; not on logic errors
-- ❌ Don't call `KEYS`, `FLUSHALL` or huge `SMEMBERS`/`HGETALL` from app code
-- ❌ Don't store unbounded collections without a cap (`LTRIM`, TTLs)
+- Do: **Reuse connections**: one pooled client per process, not one per request
+- Do: **Set timeouts** (connect + socket) so a slow Redis can't hang your app
+- Do: **Pipeline** bulk operations; use `MGET`/`MSET`/`HMGET`
+- Do: **Handle failures**: on Redis errors in a cache path, fall back to the DB
+- Do: **Serialize consistently** (JSON, MessagePack, protobuf) and version your keys: `v2:product:7`
+- Do: **Retry with backoff** on connection errors; not on logic errors
+- Avoid: call `KEYS`, `FLUSHALL` or huge `SMEMBERS`/`HGETALL` from app code
+- Avoid: store unbounded collections without a cap (`LTRIM`, TTLs)
 
 ---
 
-# Part 7 · 🔴 Scaling & High Availability
+# Part 7 · Scaling & High Availability
 
 *Replication, Sentinel and Cluster*
 
@@ -1989,9 +1986,9 @@ while (true) sub.consume();               // blocks until a message arrives
 ```mermaid
 flowchart LR
   subgraph Problems
-    P1["💥 Server dies<br/>→ outage"]
-    P2["📈 Too many reads<br/>→ CPU maxed"]
-    P3["🧠 Data > RAM<br/>of one machine"]
+    P1["Server dies<br/>→ outage"]
+    P2["Too many reads<br/>→ CPU maxed"]
+    P3["Data > RAM<br/>of one machine"]
   end
   P1 --> S1["Replication + Sentinel"]
   P2 --> S2["Read replicas"]
@@ -2009,11 +2006,11 @@ Two separate ideas:
 
 ```mermaid
 flowchart LR
-  C["✍️ writes"] --> P[("Primary")]
+  C["writes"] --> P[("Primary")]
   P -- "async stream of commands" --> R1[("Replica 1")]
   P -- "async stream" --> R2[("Replica 2")]
   R1 -- "chain allowed" --> R3[("Replica 3")]
-  RD["📖 reads (optional)"] --> R1 & R2
+  RD["reads (optional)"] --> R1 & R2
 ```
 
 ```text
@@ -2057,7 +2054,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-  S1["🛡️ Sentinel 1"] & S2["🛡️ Sentinel 2"] & S3["🛡️ Sentinel 3"] -. monitor .-> P[("Primary ❌")]
+  S1["Sentinel 1"] & S2["Sentinel 2"] & S3["Sentinel 3"] -. monitor .-> P[("Primary ")]
   S1 & S2 & S3 -. monitor .-> R1[("Replica 1")]
   S1 & S2 & S3 -. monitor .-> R2[("Replica 2")]
   App["App"] -- "who is primary?" --> S1
@@ -2120,7 +2117,7 @@ sequenceDiagram
 - **Hash tags** force that: only the part inside `{…}` is hashed
 
 ```text
-{user:42}:profile   {user:42}:cart   {user:42}:orders   → same slot ✅
+{user:42}:profile   {user:42}:cart   {user:42}:orders   → same slot
 ```
 
 ---
@@ -2129,10 +2126,10 @@ sequenceDiagram
 
 | Setup | Nodes | Survives node loss | Scales writes | Multi-key ops |
 | --- | --- | --- | --- | --- |
-| Single instance | 1 | ❌ | ❌ | ✅ all |
-| Primary + replicas | 1 + N | manual promote | ❌ | ✅ all |
-| + Sentinel | 1 + N + 3 | ✅ automatic | ❌ | ✅ all |
-| Cluster | ≥ 3 primaries (+ replicas) | ✅ automatic | ✅ | ⚠️ same slot only |
+| Single instance | 1 | no | no | all |
+| Primary + replicas | 1 + N | manual promote | no | all |
+| + Sentinel | 1 + N + 3 | automatic | no | all |
+| Cluster | ≥ 3 primaries (+ replicas) | automatic | yes | ⚠️ same slot only |
 
 **Start simple.** A single well-sized instance goes a long way; add Sentinel for HA; use Cluster when data or write load exceeds one machine.
 
@@ -2149,11 +2146,11 @@ sequenceDiagram
   participant P as Primary
   participant R as Replica
   C->>P: SET balance 100
-  P-->>C: OK ✅
-  Note over P: 💥 crashes before replicating
+  P-->>C: OK
+  Note over P: crashes before replicating
   Note over R: promoted to primary, never saw the write
   C->>R: GET balance
-  R-->>C: old value 😬
+  R-->>C: old value
 ```
 
 - Acknowledged writes **can be lost** during failover
@@ -2162,7 +2159,7 @@ sequenceDiagram
 
 ---
 
-## Recap of Part 7 ✅
+## Recap of Part 7
 
 - **Replication** = async copies; partial resync via the backlog, full resync via RDB
 - **Sentinel** = monitors + votes + promotes a replica (run ≥ 3)
@@ -2172,7 +2169,7 @@ sequenceDiagram
 
 ---
 
-# Part 8 · 🔴 Redis vs Google's LevelDB
+# Part 8 · Redis vs Google's LevelDB
 
 *Two key-value stores, two very different philosophies*
 
@@ -2183,9 +2180,9 @@ sequenceDiagram
 **LevelDB** is an **embedded**, **on-disk**, **sorted** key-value store written in C++ at Google by **Jeff Dean** and **Sanjay Ghemawat**, open-sourced in **2011**.
 
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:10px">
-<div style="background:var(--surface0);border-top:5px solid var(--blue);border-radius:12px;padding:14px 18px"><b>📦 A library, not a server</b><br>Linked into your program. No network, no port, no separate process.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--green);border-radius:12px;padding:14px 18px"><b>💾 Disk first</b><br>Data can be far larger than RAM. Built on an <b>LSM tree</b>.</div>
-<div style="background:var(--surface0);border-top:5px solid var(--peach);border-radius:12px;padding:14px 18px"><b>🔤 Sorted keys</b><br>Keys are ordered bytewise, so range scans and prefix scans are natural.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:12px;padding:14px 18px"><b>A library, not a server</b><br>Linked into your program. No network, no port, no separate process.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:12px;padding:14px 18px"><b>Disk first</b><br>Data can be far larger than RAM. Built on an <b>LSM tree</b>.</div>
+<div style="background:var(--surface0);border:1px solid var(--surface1);border-radius:12px;padding:14px 18px"><b>Sorted keys</b><br>Keys are ordered bytewise, so range scans and prefix scans are natural.</div>
 </div>
 
 - Only a handful of operations: `Put`, `Get`, `Delete`, atomic `WriteBatch`, iterators, snapshots
@@ -2200,15 +2197,15 @@ sequenceDiagram
 flowchart LR
   subgraph RedisSide["Redis: a server"]
     direction TB
-    A1["app 1"] & A2["app 2"] & A3["app 3"] -- TCP --> RS["redis-server<br/>🧠 all data in RAM"]
-    RS -.-> RD["💾 optional RDB/AOF"]
+    A1["app 1"] & A2["app 2"] & A3["app 3"] -- TCP --> RS["redis-server<br/> all data in RAM"]
+    RS -.-> RD["optional RDB/AOF"]
   end
   subgraph LevelSide["LevelDB: a library"]
     direction TB
     subgraph Proc["your process"]
       APP["app code"] -- "function call" --> LIB["libleveldb"]
     end
-    LIB --> F["💾 files on disk<br/>+ RAM caches"]
+    LIB --> F["files on disk<br/>+ RAM caches"]
   end
 ```
 
@@ -2222,11 +2219,11 @@ flowchart LR
 **Log-Structured Merge tree:** turn random writes into fast **sequential** writes.
 
 <div style="display:flex;flex-direction:column;gap:10px;margin:12px 0">
-<small>🧠 write path (fast, sequential)</small>
-<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="background:var(--surface0);border:2px solid var(--text);border-radius:10px;padding:8px 12px;text-align:center">✍️ <b>Put(k, v)</b></div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--peach);border-radius:10px;padding:8px 12px;text-align:center">1 · append to<br><b>write-ahead log</b> (disk)</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--green);border-radius:10px;padding:8px 12px;text-align:center">2 · insert into<br><b>memtable</b> (skiplist, RAM)</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--yellow);border-radius:10px;padding:8px 12px;text-align:center">3 · full (~4 MB) →<br><b>immutable memtable</b></div></div>
+<small>write path (fast, sequential)</small>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center"><b>Put(k, v)</b></div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center">1 · append to<br><b>write-ahead log</b> (disk)</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center">2 · insert into<br><b>memtable</b> (skiplist, RAM)</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center">3 · full (~4 MB) →<br><b>immutable memtable</b></div></div>
 <div style="padding-left:40%">↓ background flush · then <b>compaction</b> pushes data down ↓</div>
-<small>💾 on disk: levels of sorted files</small>
-<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="background:var(--surface0);border:2px solid var(--blue);border-radius:10px;padding:8px 12px;text-align:center">4 · flush → <b>Level-0</b><br>SSTables</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--sapphire);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-1</b><br>~10 MB</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--sky);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-2</b><br>~100 MB</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--teal);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-3…6</b><br>×10 each</div></div>
+<small>on disk: levels of sorted files</small>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center">4 · flush → <b>Level-0</b><br>SSTables</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-1</b><br>~10 MB</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-2</b><br>~100 MB</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:1px solid var(--surface2);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-3…6</b><br>×10 each</div></div>
 </div>
 
 Fun link: LevelDB's memtable is a **skip list**, the same structure behind Redis sorted sets!
@@ -2260,7 +2257,7 @@ Each on-disk file is **immutable** and sorted by key.
 ```mermaid
 flowchart LR
   G["Get('kiwi')"] --> M{"memtable?"}
-  M -- found --> Done["✅ return"]
+  M -- found --> Done["return"]
   M -- no --> I{"immutable memtable?"}
   I -- found --> Done
   I -- no --> L0{"Level-0 files<br/>(newest first, may overlap)"}
@@ -2268,7 +2265,7 @@ flowchart LR
   L0 -- no --> L1{"Level-1: one file<br/>whose range covers 'kiwi'"}
   L1 -- "Bloom says no → skip" --> L2{"Level-2 …"}
   L1 -- found --> Done
-  L2 --> Nf["❌ not found"]
+  L2 --> Nf["not found"]
 ```
 
 Newest data wins. Reads may touch several files (**read amplification**), which Bloom filters and the block cache soften.
@@ -2315,7 +2312,7 @@ int main() {
 
     leveldb::DB* db;
     leveldb::Status s = leveldb::DB::Open(options, "/tmp/demo-ldb", &db);
-    if (!s.ok()) { std::cerr << s.ToString() << '\n'; return 1; }
+    if (!s.ok()) {std::cerr << s.ToString() << '\n'; return 1; }
 
     db->Put(leveldb::WriteOptions(), "user:42", "Asha");
     std::string value;
@@ -2422,9 +2419,9 @@ Redis gives you **rich structures** but no global order. LevelDB gives you **ord
 ```mermaid
 flowchart TD
   Q{"What are you building?"}
-  Q --> A["Shared cache / sessions /<br/>rate limits for many servers"] --> R1["🟥 Redis"]
+  Q --> A["Shared cache / sessions /<br/>rate limits for many servers"] --> R1["Redis"]
   Q --> B["Leaderboards, queues,<br/>pub/sub, real-time counters"] --> R1
-  Q --> C["Local storage inside an app<br/>(browser, desktop, mobile, node)"] --> L1["🟦 LevelDB / RocksDB"]
+  Q --> C["Local storage inside an app<br/>(browser, desktop, mobile, node)"] --> L1["LevelDB / RocksDB"]
   Q --> D["Data much bigger than RAM,<br/>must persist cheaply"] --> L1
   Q --> E["Storage engine for your<br/>own database"] --> L1
   Q --> F["Need ordered range scans<br/>over huge keyspaces"] --> L1
@@ -2443,7 +2440,7 @@ flowchart LR
   P["Redis protocol<br/>(RESP + commands)"] --> K["Apache Kvrocks"] --> Rk[("RocksDB")]
   P --> Pk["Pika"] --> Rk
   P --> SS["SSDB"] --> Ld[("LevelDB")]
-  Rk -. "fork of" .-> Ld
+  Rk -. "fork of".-> Ld
 ```
 
 - **RocksDB** (Meta, 2012) forked LevelDB and added multi-threaded compaction, column families, transactions and many tuning knobs
@@ -2458,14 +2455,14 @@ flowchart LR
 | | Hash table (Redis) | LSM tree (LevelDB) | B-tree (InnoDB, SQLite) |
 | --- | --- | --- | --- |
 | Point lookup | **O(1)** in RAM | O(levels), Bloom-assisted | O(log N) |
-| Range scan | ❌ (needs a separate index) | ✅ sorted | ✅ sorted |
+| Range scan | no, needs an index | sorted | sorted |
 | Write pattern | in-place in RAM | **sequential append** → great writes | in-place page updates |
 | Best at | tiny latency | write-heavy, big data | balanced read/write, OLTP |
 | Pain point | RAM cost | compaction, read/write amplification | random I/O on writes |
 
 ---
 
-## Recap of Part 8 ✅
+## Recap of Part 8
 
 - **LevelDB** = Google's embedded, disk-based, sorted key-value **library**
 - Writes: **WAL → memtable (skiplist) → SSTables → compaction** across levels
@@ -2476,7 +2473,7 @@ flowchart LR
 
 ---
 
-# Part 9 · 🏁 Production & Wrap-Up
+# Part 9 · Production & Wrap-Up
 
 *Running Redis safely, the wider ecosystem, and your next steps*
 
@@ -2523,17 +2520,17 @@ Also on Linux: disable **Transparent Huge Pages**, set `vm.overcommit_memory = 1
 
 ---
 
-## Common Mistakes 🚫
+## Common Mistakes
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>KEYS * in production</b><br>→ use <code>SCAN</code></div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>No TTL on cache keys</b><br>→ memory grows forever</div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>No maxmemory</b><br>→ OOM killer ends Redis</div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Open to the internet, no password</b><br>→ compromised in minutes</div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>New connection per request</b><br>→ latency & connection storms</div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Giant keys / collections</b><br>→ event loop stalls</div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Treating Redis as the only copy</b><br>→ without persistence + HA, a restart loses it</div>
-<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Long Lua scripts / MULTI blocks</b><br>→ everyone waits</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>KEYS * in production</b><br>→ use <code>SCAN</code></div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>No TTL on cache keys</b><br>→ memory grows forever</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>No maxmemory</b><br>→ OOM killer ends Redis</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>Open to the internet, no password</b><br>→ compromised in minutes</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>New connection per request</b><br>→ latency & connection storms</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>Giant keys / collections</b><br>→ event loop stalls</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>Treating Redis as the only copy</b><br>→ without persistence + HA, a restart loses it</div>
+<div style="background:var(--surface0);border-left:3px solid var(--red);border-radius:10px;padding:10px 16px"><b>Long Lua scripts / MULTI blocks</b><br>→ everyone waits</div>
 </div>
 
 ---
@@ -2571,7 +2568,7 @@ Most clients (`redis-py`, `redis-plus-plus`) work with any RESP-compatible serve
 
 ---
 
-## Test Yourself 🧪 (1/2)
+## Test Yourself (1/2)
 
 - **1.** Why does `KEYS *` hurt production but `SCAN` doesn't?
   - *One thread: `KEYS` blocks until every key is walked; `SCAN` works in small chunks.* {reveal}
@@ -2582,7 +2579,7 @@ Most clients (`redis-py`, `redis-plus-plus`) work with any RESP-compatible serve
 
 ---
 
-## Test Yourself 🧪 (2/2)
+## Test Yourself (2/2)
 
 - **4.** What does `fork()` + copy-on-write give RDB?
   - *A consistent snapshot while the parent keeps serving.* {reveal}
@@ -2614,16 +2611,16 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  subgraph Basics["🟢 Basics"]
+  subgraph Basics["Basics"]
     b1["in-memory key-value server"] --> b2["rich data types"]
   end
-  subgraph Internals["🟡 Internals"]
-    i1["single-thread event loop"] --> i2["compact ↔ fast encodings"] --> i3["lazy + active expiry, LRU/LFU"] --> i4["RDB + AOF"]
+  subgraph Internals["Internals"]
+    i1["single-thread event loop"] --> i2["compact fast encodings"] --> i3["lazy + active expiry, LRU/LFU"] --> i4["RDB + AOF"]
   end
-  subgraph Practice["🟠 Practice"]
+  subgraph Practice["Practice"]
     p1["cache-aside + TTL"] --> p2["sessions · rate limits · leaderboards · queues · pub/sub · geo · AI"]
   end
-  subgraph Advanced["🔴 Advanced"]
+  subgraph Advanced["Advanced"]
     a1["replication · Sentinel · Cluster"] --> a2["LevelDB: embedded LSM on disk"]
   end
   Basics --> Internals --> Practice --> Advanced
@@ -2631,7 +2628,7 @@ flowchart TB
 
 ---
 
-# Thank You 🙏
+# Thank You
 
 ### Now go run `redis-cli` and break things.
 
