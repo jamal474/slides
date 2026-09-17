@@ -63,6 +63,25 @@ async function markdownFiles(dir) {
   return found.sort();
 }
 
+/**
+ * Renders one standalone page.
+ *
+ * deckrun's generateHtml has had two shapes: with and without the `size`
+ * argument before `fonts`. Passing the wrong one silently drops the options
+ * object, and the page comes out linking /__vendor/ assets instead of CDNs.
+ * So: try the current shape, and fall back to the older one if the telltale
+ * /__vendor/ link shows up.
+ */
+function buildStandalone(slides, title, opts) {
+  const fonts = { head: opts.head, body: opts.body };
+  const presentation = { template: opts.template, transition: opts.transition, standalone: true };
+
+  const withSize = generateHtml(slides, title, false, opts.theme, undefined, fonts, presentation);
+  if (!withSize.includes("/__vendor/")) return withSize;
+
+  return generateHtml(slides, title, false, opts.theme, fonts, presentation);
+}
+
 const strict = !process.argv.includes("--no-strict");
 const files = await markdownFiles(SRC);
 if (files.length === 0) {
@@ -98,8 +117,16 @@ for (const file of files) {
 
   const opts = optionsFor(markdown);
   const title = opts.title || deckTitle(slides, rel.replace(/\.md$/, ""));
-  const html = generateHtml(slides, title, false, opts.theme, { head: opts.head, body: opts.body },
-    { template: opts.template, transition: opts.transition, standalone: true });
+  const html = buildStandalone(slides, title, opts);
+
+  // A standalone page must carry no /__vendor/ links: those only resolve on a
+  // running deckrun server, and a published page would show its Mermaid
+  // diagrams and equations as raw source instead of rendering them.
+  if (html.includes("/__vendor/")) {
+    console.error(`  \u2716 ${rel}: built page still links /__vendor/ assets — deckrun's generateHtml signature has changed again.`);
+    failed++;
+    continue;
+  }
 
   const outPath = join(OUT, rel.replace(/\.md$/, ".html"));
   await mkdir(dirname(outPath), { recursive: true });
