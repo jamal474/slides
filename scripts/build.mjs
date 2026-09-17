@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+/**
+ * Builds every Markdown deck in src/ into a standalone deckrun HTML page in dist/.
+ *
+ * The output is byte-identical to the editor's "export → HTML / Presenter Page":
+ * one self-contained file that opens as a slide deck (arrows, overview, fullscreen,
+ * laser pointer, pen). Fonts, highlight.js, KaTeX and Mermaid load from CDNs.
+ *
+ * Per-deck options live in an HTML comment on the first slide, for example:
+ *   <!-- deckrun: theme=midnight template=classic transition=slide -->
+ * Anything not set there falls back to the DEFAULTS below.
+ */
+import { readdir, readFile, mkdir, writeFile, rm } from "node:fs/promises";
+import { join, relative, dirname, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { parseSlides } from "deckrun/dist/parser.js";
+import { generateHtml } from "deckrun/dist/generate.js";
+import { lintMarkdown } from "deckrun/dist/lint.js";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const SRC = join(ROOT, "src");
+const OUT = join(ROOT, "dist");
+
+const DEFAULTS = {
+  theme: "midnight",       // deckrun --list-themes
+  template: "classic",     // classic | minimal | editorial | spotlight
+  transition: "slide",     // slide | fade | zoom | lift | none
+  head: null,              // heading font override, e.g. playfair
+  body: null,              // body font override, e.g. lora
+  title: null              // defaults to the first heading of the deck
+};
+
+const OPTION_RE = /<!--\s*deckrun:\s*([^>]*?)\s*-->/i;
+
+function optionsFor(markdown) {
+  const opts = { ...DEFAULTS };
+  const match = markdown.match(OPTION_RE);
+  if (!match) return opts;
+  for (const pair of match[1].split(/\s+/).filter(Boolean)) {
+    const eq = pair.indexOf("=");
+    if (eq === -1) continue;
+    const key = pair.slice(0, eq).trim();
+    const value = pair.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (key in opts) opts[key] = value;
+  }
+  return opts;
+}
+
+function deckTitle(slides, fallback) {
+  const heading = slides[0]?.html.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/i);
+  const text = heading ? heading[1].replace(/<[^>]+>/g, "").trim() : "";
+  return text || fallback;
+}
+
+async function markdownFiles(dir) {
+  const found = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...(await markdownFiles(full)));
+    else if (entry.name.endsWith(".md")) found.push(full);
+  }
+  return found.sort();
+}
+
+const strict = !process.argv.includes("--no-strict");
+const files = await markdownFiles(SRC);
+if (files.length === 0) {
+  console.error("no .md files found in src/");
+  process.exit(1);
+}
+
+await rm(OUT, { recursive: true, force: true });
+let failed = 0;
+
+for (const file of files) {
+  const rel = relative(SRC, file);
+  const markdown = await readFile(file, "utf8");
+
+  const lint = lintMarkdown(markdown);
+  const problems = lint.problems ?? lint.messages ?? [];
+  const errors = problems.filter((p) => p.severity === "error");
+  const warnings = problems.filter((p) => p.severity !== "error");
+  for (const p of problems) {
+    console.log(`  ${p.severity === "error" ? "✖" : "⚠"} ${rel}:${p.line ?? 0} ${p.message}`);
+  }
+  if (errors.length) {
+    failed++;
+    continue;
+  }
+
+  const slides = parseSlides(markdown);
+  if (slides.length === 0) {
+    console.log(`  ✖ ${rel} has no slides`);
+    failed++;
+    continue;
+  }
+
+  const opts = optionsFor(markdown);
+  const title = opts.title || deckTitle(slides, rel.replace(/\.md$/, ""));
+  const html = generateHtml(slides, title, false, opts.theme, { head: opts.head, body: opts.body },
+    { template: opts.template, transition: opts.transition, standalone: true });
+
+  const outPath = join(OUT, rel.replace(/\.md$/, ".html"));
+  await mkdir(dirname(outPath), { recursive: true });
+  await writeFile(outPath, html, "utf8");
+  console.log(`  ✓ ${rel} → dist${sep}${relative(OUT, outPath)}  (${slides.length} slides, ${warnings.length} warnings, theme ${opts.theme})`);
+}
+
+if (failed) {
+  console.error(`\n${failed} deck(s) failed to build.`);
+  process.exit(1);
+}
+console.log(`\nbuilt ${files.length} deck(s) into dist/`);

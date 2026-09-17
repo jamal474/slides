@@ -1,0 +1,2607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redis, From Zero to Deep Dive</title>
+<meta name="description" content="An illustrated beginner-to-advanced guide to Redis: data types, internals, caching, use cases, Python and C++ code, scaling, and a comparison with Google's LevelDB.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link id="hljs-dark" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/styles/atom-one-dark.min.css">
+<link id="hljs-light" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/styles/atom-one-light.min.css" disabled>
+<style>
+:root {
+  --crust:#11111b; --mantle:#181825; --base:#1e1e2e; --surface0:#27283a; --surface1:#393b52; --surface2:#4c4f69;
+  --overlay1:#7f849c; --subtext0:#a6adc8; --text:#cdd6f4; --muted:#9399b2;
+  --red:#f38ba8; --peach:#fab387; --yellow:#f9e2af; --green:#a6e3a1; --teal:#94e2d5; --sky:#89dceb;
+  --sapphire:#74c7ec; --blue:#89b4fa; --mauve:#cba6f7; --pink:#f5c2e7;
+  --accent:var(--mauve); --link:var(--blue); --code-bg:#15151f; --border:#313244;
+  --font-body:'Inter',system-ui,sans-serif; --font-display:'Space Grotesk','Inter',sans-serif; --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --crust:#dce0e8; --mantle:#e6e9ef; --base:#f7f7fb; --surface0:#eceef4; --surface1:#dcdfe8; --surface2:#bcc0cc;
+  --overlay1:#7c7f93; --subtext0:#5c5f77; --text:#2b2d3a; --muted:#6c6f85;
+  --red:#d20f39; --peach:#e0600a; --yellow:#b07a08; --green:#2f8a1f; --teal:#138a8a; --sky:#0a8fb0;
+  --sapphire:#1a7fa8; --blue:#1e66f5; --mauve:#8839ef; --pink:#c43e9e;
+  --code-bg:#f0f1f6; --border:#d6d9e3; color-scheme: light;
+}}
+:root[data-theme="light"] {
+  --crust:#dce0e8; --mantle:#e6e9ef; --base:#f7f7fb; --surface0:#eceef4; --surface1:#dcdfe8; --surface2:#bcc0cc;
+  --overlay1:#7c7f93; --subtext0:#5c5f77; --text:#2b2d3a; --muted:#6c6f85;
+  --red:#d20f39; --peach:#e0600a; --yellow:#b07a08; --green:#2f8a1f; --teal:#138a8a; --sky:#0a8fb0;
+  --sapphire:#1a7fa8; --blue:#1e66f5; --mauve:#8839ef; --pink:#c43e9e;
+  --code-bg:#f0f1f6; --border:#d6d9e3; color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+body { margin:0; background:var(--base); color:var(--text); font:16px/1.7 var(--font-body); -webkit-font-smoothing:antialiased; }
+a { color:var(--link); text-underline-offset:3px; }
+#progress { position:fixed; top:0; left:0; height:3px; width:0; background:linear-gradient(90deg,var(--mauve),var(--blue)); z-index:50; }
+.layout { display:grid; grid-template-columns:300px minmax(0,1fr); min-height:100vh; }
+nav.toc { position:sticky; top:0; height:100vh; overflow-y:auto; background:var(--mantle); border-right:1px solid var(--border); padding:24px 18px 40px; font-size:14px; }
+.toc .brand { font:700 18px var(--font-display); color:var(--text); text-decoration:none; display:block; margin-bottom:4px; }
+.toc .tag { color:var(--muted); font-size:12px; margin:0 0 18px; }
+.toc ol { list-style:none; margin:0; padding:0; }
+.toc > ol > li { margin-bottom:6px; }
+.toc a { color:var(--subtext0); text-decoration:none; display:block; padding:3px 8px; border-radius:6px; line-height:1.4; }
+.toc a:hover { background:var(--surface0); color:var(--text); }
+.toc a.toc-part { color:var(--text); font-weight:600; padding:6px 8px; }
+.toc li ol { padding-left:14px; border-left:1px solid var(--border); margin:2px 0 8px 12px; display:none; }
+.toc li.open ol { display:block; }
+.toc a.active { color:var(--accent); background:var(--surface0); }
+.tools { display:flex; gap:8px; margin-bottom:18px; }
+.tools button, .menu-btn { font:500 13px var(--font-body); color:var(--text); background:var(--surface0); border:1px solid var(--border); border-radius:8px; padding:6px 10px; cursor:pointer; }
+.tools button:hover { border-color:var(--accent); }
+main { padding:0 56px 120px; max-width:1060px; width:100%; }
+.hero { padding:72px 0 40px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+.hero h1 { font:700 clamp(36px,5vw,58px)/1.08 var(--font-display); margin:0 0 12px; letter-spacing:-0.02em; background:linear-gradient(90deg,var(--mauve),var(--blue)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.hero h3 { font:500 20px var(--font-body); color:var(--subtext0); margin:0 0 4px; }
+.hero .intro { color:var(--subtext0); max-width:680px; margin-top:22px; }
+.part { margin-top:64px; }
+.part-head { position:relative; padding:36px 32px; border-radius:18px; background:linear-gradient(135deg,var(--surface0),var(--mantle)); border:1px solid var(--border); margin-bottom:12px; }
+.part-num { font:600 13px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; color:var(--accent); }
+.part-head h2 { font:700 clamp(28px,3.4vw,38px)/1.15 var(--font-display); margin:6px 0 4px; letter-spacing:-0.01em; }
+.part-head p { margin:0; color:var(--muted); font-style:italic; }
+.topic { padding:34px 0 10px; border-bottom:1px dashed var(--border); }
+.topic h3 { font:700 26px/1.25 var(--font-display); margin:0 0 14px; color:var(--blue); position:relative; letter-spacing:-0.01em; }
+.anchor { position:absolute; left:-26px; opacity:0; color:var(--muted); text-decoration:none; font-weight:400; }
+.topic h3:hover .anchor { opacity:1; }
+.topic.recap { border:1px solid var(--border); border-left:5px solid var(--green); border-radius:14px; padding:24px 28px; margin:30px 0; background:var(--mantle); }
+.topic.recap h3 { color:var(--green); }
+h4 { color:var(--sky); }
+strong { color:var(--peach); font-weight:600; }
+em { color:var(--subtext0); }
+p, ul, ol { margin:0 0 14px; }
+.topic ul, .topic ol { padding-left:24px; }
+.topic li::marker { color:var(--mauve); }
+code { font:0.88em var(--font-mono); }
+pre code { font-size:inherit; }
+:not(pre) > code { background:var(--surface0); color:var(--green); border:1px solid var(--border); padding:1px 6px; border-radius:5px; }
+pre { position:relative; background:var(--code-bg) !important; border:1px solid var(--border); border-radius:12px; padding:16px 18px; overflow-x:auto; font-size:14px; line-height:1.55; margin:0 0 18px; }
+pre code.hljs { background:transparent; padding:0; }
+.copy { position:absolute; top:8px; right:8px; font:500 11px var(--font-body); background:var(--surface1); color:var(--text); border:0; border-radius:6px; padding:4px 8px; cursor:pointer; opacity:0; transition:opacity .15s; }
+pre:hover .copy, .copy:focus { opacity:1; }
+.table-wrap { overflow-x:auto; margin:0 0 18px; }
+table { width:100%; border-collapse:collapse; font-size:15px; }
+th { text-align:left; font:600 12px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--mauve); border-bottom:2px solid var(--mauve); padding:10px 12px; white-space:nowrap; }
+td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+tbody tr:nth-child(even) { background:color-mix(in srgb, var(--surface0) 55%, transparent); }
+blockquote { margin:0 0 16px; padding:10px 18px; border-left:4px solid var(--mauve); background:var(--surface0); border-radius:0 10px 10px 0; }
+.diagram { margin:8px 0 22px; padding:18px; background:var(--mantle); border:1px solid var(--border); border-radius:14px; overflow-x:auto; text-align:center; }
+.diagram pre.mermaid { background:transparent !important; border:0; padding:0; margin:0; color:var(--muted); font-size:12px; white-space:pre; text-align:left; }
+.diagram pre.mermaid[data-processed] { text-align:center; white-space:normal; }
+.diagram svg { max-width:100%; height:auto; }
+.formula { font:500 18px var(--font-mono); text-align:center; padding:16px; margin:0 0 18px; background:var(--surface0); border-radius:12px; border:1px solid var(--border); }
+.formula b { color:var(--green); }
+.note { font-size:14px; color:var(--subtext0); background:var(--mantle); border:1px solid var(--border); border-left:4px solid var(--sky); border-radius:10px; padding:10px 14px; margin:0 0 18px; }
+.note b { color:var(--sky); margin-right:6px; }
+.topic div[style*="grid-template-columns"] { margin-bottom:18px; }
+.topic div[style*="grid-template-columns"] > * { min-width:0; }
+.topic div[style*="display:flex"] { flex-wrap:wrap; }
+kbd { font:12px var(--font-mono); border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; padding:1px 6px; }
+footer { margin-top:80px; color:var(--muted); font-size:14px; border-top:1px solid var(--border); padding-top:24px; }
+.menu-btn { display:none; position:fixed; top:12px; right:12px; z-index:40; }
+.to-top { position:fixed; right:20px; bottom:20px; width:42px; height:42px; border-radius:50%; border:1px solid var(--border); background:var(--surface0); color:var(--text); cursor:pointer; font-size:18px; opacity:0; pointer-events:none; transition:opacity .2s; }
+.to-top.show { opacity:1; pointer-events:auto; }
+@media (max-width: 960px) {
+  .layout { grid-template-columns:minmax(0,1fr); }
+  nav.toc { position:fixed; inset:0 auto 0 0; width:min(320px,86vw); z-index:45; transform:translateX(-100%); transition:transform .2s; box-shadow:0 0 40px rgba(0,0,0,.4); }
+  body.nav-open nav.toc { transform:none; }
+  .menu-btn { display:block; }
+  main { padding:0 16px 100px; }
+  .hero { padding-top:56px; }
+  .part-head { padding:24px 20px; }
+  .topic div[style*="grid-template-columns"] { grid-template-columns:1fr 1fr !important; }
+  .anchor { display:none; }
+}
+@media (max-width: 560px) {
+  .topic div[style*="grid-template-columns"] { grid-template-columns:1fr !important; }
+  .topic div[style*="padding-left:40%"] { padding-left:0 !important; }
+  pre { font-size:12.5px; }
+}
+@media print {
+  nav.toc, .menu-btn, .to-top, #progress, .copy { display:none !important; }
+  .layout { display:block; } main { max-width:none; padding:0; }
+  .topic, .diagram, pre, table { break-inside:avoid; }
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<button class="menu-btn" id="menuBtn" aria-label="Open contents">☰ Contents</button>
+<div class="layout">
+<nav class="toc" id="toc" aria-label="Contents">
+  <a class="brand" href="#top">🧠 Redis Deep Dive</a>
+  <p class="tag">Beginner → advanced, in 9 parts</p>
+  <div class="tools">
+    <button id="themeBtn" type="button">◐ Theme</button>
+    <button id="expandBtn" type="button">Expand all</button>
+  </div>
+  <ol><li><a class="toc-part" href="#part-1-what-is-redis"><span>🟢</span> 1. What Is Redis?</a><ol><li><a href="#first-what-is-a-database">First, What Is a Database?</a></li><li><a href="#why-speed-depends-on-where-data-lives">Why Speed Depends on Where Data Lives</a></li><li><a href="#traditional-databases-live-on-disk">Traditional Databases Live on Disk</a></li><li><a href="#enter-redis">Enter Redis</a></li><li><a href="#the-mental-model-one-giant-dictionary">The Mental Model: One Giant Dictionary</a></li><li><a href="#a-short-history">A Short History</a></li><li><a href="#who-uses-redis-and-for-what">Who Uses Redis, and For What?</a></li><li><a href="#getting-redis-running">Getting Redis Running</a></li><li><a href="#your-first-commands">Your First Commands</a></li><li><a href="#counters-are-built-in">Counters Are Built In</a></li><li><a href="#keys-that-expire-automatically">Keys That Expire Automatically</a></li><li><a href="#naming-keys-well">Naming Keys Well</a></li><li><a href="#recap-of-part-1">Recap of Part 1 ✅</a></li></ol></li><li><a class="toc-part" href="#part-2-data-types"><span>🟢</span> 2. Data Types</a><ol><li><a href="#the-data-type-family">The Data Type Family</a></li><li><a href="#1-strings">1 · Strings</a></li><li><a href="#2-lists">2 · Lists</a></li><li><a href="#3-hashes">3 · Hashes</a></li><li><a href="#4-sets">4 · Sets</a></li><li><a href="#5-sorted-sets-zsets">5 · Sorted Sets (ZSETs) ⭐</a></li><li><a href="#6-streams">6 · Streams</a></li><li><a href="#7-bitmaps-bitfields">7 · Bitmaps & Bitfields</a></li><li><a href="#8-hyperloglog">8 · HyperLogLog</a></li><li><a href="#9-geospatial">9 · Geospatial</a></li><li><a href="#10-json-vector-sets-redis-8">10 · JSON & Vector Sets (Redis 8)</a></li><li><a href="#choosing-the-right-type">Choosing the Right Type</a></li><li><a href="#commands-that-work-on-any-key">Commands That Work on Any Key</a></li><li><a href="#recap-of-part-2">Recap of Part 2 ✅</a></li></ol></li><li><a class="toc-part" href="#part-3-how-redis-works"><span>🟡</span> 3. How Redis Works</a><ol><li><a href="#the-big-picture">The Big Picture</a></li><li><a href="#step-1-talking-to-redis-resp">Step 1 · Talking to Redis: RESP</a></li><li><a href="#step-2-one-thread-one-loop">Step 2 · One Thread, One Loop</a></li><li><a href="#why-is-single-threaded-so-fast">Why Is Single-Threaded So Fast?</a></li><li><a href="#threads-redis-does-use">Threads Redis Does Use</a></li><li><a href="#step-3-how-keys-are-stored">Step 3 · How Keys Are Stored</a></li><li><a href="#strings-inside-sds">Strings Inside: SDS</a></li><li><a href="#two-encodings-per-type">Two Encodings Per Type</a></li><li><a href="#the-skip-list-behind-sorted-sets">The Skip List (behind Sorted Sets)</a></li><li><a href="#step-4-expiration-lazy-active">Step 4 · Expiration: Lazy + Active</a></li><li><a href="#step-5-running-out-of-memory">Step 5 · Running Out of Memory</a></li><li><a href="#lfu-in-a-nutshell">LFU in a Nutshell</a></li><li><a href="#step-6-persistence-why-bother">Step 6 · Persistence: Why Bother?</a></li><li><a href="#rdb-snapshots-with-fork-copy-on-write">RDB: Snapshots with fork() + Copy-on-Write</a></li><li><a href="#aof-log-every-write">AOF: Log Every Write</a></li><li><a href="#which-persistence-should-i-use">Which Persistence Should I Use?</a></li><li><a href="#step-7-doing-several-things-at-once">Step 7 · Doing Several Things at Once</a></li><li><a href="#transactions-multi-exec-watch">Transactions: MULTI / EXEC / WATCH</a></li><li><a href="#server-side-logic-lua-functions">Server-Side Logic: Lua & Functions</a></li><li><a href="#pub-sub-fire-and-forget-messaging">Pub/Sub: Fire-and-Forget Messaging</a></li><li><a href="#keyspace-notifications-client-side-caching">Keyspace Notifications & Client-Side Caching</a></li><li><a href="#recap-of-part-3">Recap of Part 3 ✅</a></li></ol></li><li><a class="toc-part" href="#part-4-redis-as-a-cache"><span>🟡</span> 4. Redis as a Cache</a><ol><li><a href="#what-is-a-cache">What Is a Cache?</a></li><li><a href="#why-caching-pays-off">Why Caching Pays Off</a></li><li><a href="#pattern-1-cache-aside-lazy-loading">Pattern 1 · Cache-Aside (Lazy Loading) ⭐</a></li><li><a href="#cache-aside-keeping-it-fresh-on-writes">Cache-Aside: Keeping It Fresh on Writes</a></li><li><a href="#patterns-2-4-at-a-glance">Patterns 2–4 at a Glance</a></li><li><a href="#choosing-ttls">Choosing TTLs</a></li><li><a href="#problem-1-cache-stampede-thundering-herd">Problem 1 · Cache Stampede (Thundering Herd)</a></li><li><a href="#problem-2-cache-penetration">Problem 2 · Cache Penetration</a></li><li><a href="#problem-3-cache-avalanche">Problem 3 · Cache Avalanche</a></li><li><a href="#problem-4-big-keys-hot-keys">Problem 4 · Big Keys & Hot Keys</a></li><li><a href="#multi-level-caching">Multi-Level Caching</a></li><li><a href="#redis-vs-memcached-for-caching">Redis vs Memcached for Caching</a></li><li><a href="#recap-of-part-4">Recap of Part 4 ✅</a></li></ol></li><li><a class="toc-part" href="#part-5-real-world-use-cases"><span>🟠</span> 5. Real-World Use Cases</a><ol><li><a href="#use-case-1-session-store">Use Case 1 · Session Store</a></li><li><a href="#use-case-2-rate-limiting-fixed-window">Use Case 2 · Rate Limiting (Fixed Window)</a></li><li><a href="#rate-limiting-sliding-window-log">Rate Limiting · Sliding Window Log</a></li><li><a href="#use-case-3-leaderboards">Use Case 3 · Leaderboards</a></li><li><a href="#use-case-4-distributed-lock">Use Case 4 · Distributed Lock</a></li><li><a href="#use-case-5-job-queues">Use Case 5 · Job Queues</a></li><li><a href="#use-case-6-real-time-chat-notifications">Use Case 6 · Real-Time Chat & Notifications</a></li><li><a href="#use-case-7-analytics-counting">Use Case 7 · Analytics & Counting</a></li><li><a href="#use-case-8-nearby-search">Use Case 8 · Nearby Search</a></li><li><a href="#use-case-9-ai-apps-semantic-cache-rag">Use Case 9 · AI Apps: Semantic Cache & RAG</a></li><li><a href="#other-everyday-uses">Other Everyday Uses</a></li><li><a href="#recap-of-part-5">Recap of Part 5 ✅</a></li></ol></li><li><a class="toc-part" href="#part-6-redis-in-python-c"><span>🟠</span> 6. Redis in Python & C++</a><ol><li><a href="#client-libraries-map">Client Libraries Map</a></li><li><a href="#python-hello-redis">Python · Hello Redis</a></li><li><a href="#python-working-with-data-types">Python · Working With Data Types</a></li><li><a href="#python-cache-aside-decorator">Python · Cache-Aside Decorator</a></li><li><a href="#python-pipelines-transactions">Python · Pipelines & Transactions</a></li><li><a href="#python-rate-limiter-lock-with-lua">Python · Rate Limiter & Lock with Lua</a></li><li><a href="#python-streams-worker">Python · Streams Worker</a></li><li><a href="#python-pub-sub-and-asyncio">Python · Pub/Sub and asyncio</a></li><li><a href="#c-hiredis-basics">C · hiredis Basics</a></li><li><a href="#c-redis-plus-plus-basics">C++ · redis-plus-plus Basics</a></li><li><a href="#c-data-types">C++ · Data Types</a></li><li><a href="#c-cache-aside">C++ · Cache-Aside</a></li><li><a href="#c-pipeline-lock-pub-sub">C++ · Pipeline, Lock & Pub/Sub</a></li><li><a href="#client-best-practices-any-language">Client Best Practices (Any Language)</a></li></ol></li><li><a class="toc-part" href="#part-7-scaling-high-availability"><span>🔴</span> 7. Scaling & High Availability</a><ol><li><a href="#why-one-server-isn-t-enough">Why One Server Isn't Enough</a></li><li><a href="#replication-primary-replicas">Replication: Primary → Replicas</a></li><li><a href="#how-a-replica-syncs">How a Replica Syncs</a></li><li><a href="#redis-sentinel-automatic-failover">Redis Sentinel: Automatic Failover</a></li><li><a href="#redis-cluster-sharding-with-hash-slots">Redis Cluster: Sharding With Hash Slots</a></li><li><a href="#cluster-redirects-and-hash-tags">Cluster: Redirects and Hash Tags</a></li><li><a href="#scaling-options-compared">Scaling Options Compared</a></li><li><a href="#consistency-caveats">Consistency Caveats ⚠️</a></li><li><a href="#recap-of-part-7">Recap of Part 7 ✅</a></li></ol></li><li><a class="toc-part" href="#part-8-redis-vs-google-s-leveldb"><span>🔴</span> 8. Redis vs Google's LevelDB</a><ol><li><a href="#what-is-leveldb">What Is LevelDB?</a></li><li><a href="#the-core-difference-in-one-picture">The Core Difference in One Picture</a></li><li><a href="#how-leveldb-writes-the-lsm-tree">How LevelDB Writes: The LSM Tree</a></li><li><a href="#sstables-sorted-string-tables">SSTables: Sorted String Tables</a></li><li><a href="#how-leveldb-reads">How LevelDB Reads</a></li><li><a href="#compaction">Compaction</a></li><li><a href="#leveldb-in-c">LevelDB in C++</a></li><li><a href="#leveldb-batches-range-scans-snapshots">LevelDB: Batches, Range Scans, Snapshots</a></li><li><a href="#same-task-both-ways">Same Task, Both Ways</a></li><li><a href="#head-to-head-comparison">Head-to-Head Comparison</a></li><li><a href="#when-to-choose-which">When to Choose Which</a></li><li><a href="#where-they-meet">Where They Meet</a></li><li><a href="#hash-table-vs-lsm-tree-vs-b-tree">Hash Table vs LSM Tree vs B-Tree</a></li><li><a href="#recap-of-part-8">Recap of Part 8 ✅</a></li></ol></li><li><a class="toc-part" href="#part-9-production-wrap-up"><span>🏁</span> 9. Production & Wrap-Up</a><ol><li><a href="#production-config-checklist">Production Config Checklist</a></li><li><a href="#monitoring-debugging">Monitoring & Debugging</a></li><li><a href="#common-mistakes">Common Mistakes 🚫</a></li><li><a href="#the-wider-ecosystem">The Wider Ecosystem</a></li><li><a href="#big-o-cheat-sheet">Big-O Cheat Sheet</a></li><li><a href="#test-yourself-1-2">Test Yourself 🧪 (1/2)</a></li><li><a href="#test-yourself-2-2">Test Yourself 🧪 (2/2)</a></li><li><a href="#your-learning-path">Your Learning Path</a></li><li><a href="#the-whole-story-in-one-picture">The Whole Story in One Picture</a></li><li><a href="#thank-you">Thank You 🙏</a></li></ol></li></ol>
+</nav>
+<main id="top">
+  <header class="hero">
+    <h1>Redis, From Zero to Deep Dive</h1>
+<h3>An illustrated guide for complete beginners</h3>
+<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:28px">
+<span style="background:var(--surface0);border:1px solid var(--red);border-radius:999px;padding:6px 16px">🧠 In-memory</span>
+<span style="background:var(--surface0);border:1px solid var(--peach);border-radius:999px;padding:6px 16px">⚡ Sub-millisecond</span>
+<span style="background:var(--surface0);border:1px solid var(--green);border-radius:999px;padding:6px 16px">🧰 Data structures</span>
+<span style="background:var(--surface0);border:1px solid var(--blue);border-radius:999px;padding:6px 16px">🐍 Python · ⚙️ C++</span>
+<span style="background:var(--surface0);border:1px solid var(--mauve);border-radius:999px;padding:6px 16px">🗄️ vs LevelDB</span>
+</div>
+    <p class="intro">A single-page, illustrated guide. Read it top to bottom: each part builds on the last, going from "what is a database?" all the way to cluster internals and LSM trees. Use the contents panel to jump around.</p>
+  </header>
+  <article class="topic" id="how-this-guide-is-organised"><h3><a class="anchor" href="#how-this-guide-is-organised">#</a>How This Guide Is Organised</h3>
+<p>Difficulty rises as you go. Each part builds on the one before it.</p>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px">
+<div style="background:var(--surface0);border-left:6px solid var(--green);border-radius:12px;padding:12px 18px"><b>🟢 Part 1 · What is Redis?</b><br><small>databases, RAM vs disk, first commands</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--green);border-radius:12px;padding:12px 18px"><b>🟢 Part 2 · Data types</b><br><small>strings, lists, hashes, sets, sorted sets, streams…</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--yellow);border-radius:12px;padding:12px 18px"><b>🟡 Part 3 · How it works</b><br><small>protocol, event loop, encodings, expiry, persistence</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--yellow);border-radius:12px;padding:12px 18px"><b>🟡 Part 4 · Redis as a cache</b><br><small>patterns, TTLs, stampede, penetration, avalanche</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--peach);border-radius:12px;padding:12px 18px"><b>🟠 Part 5 · Use cases</b><br><small>sessions, rate limits, leaderboards, locks, queues, AI</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--peach);border-radius:12px;padding:12px 18px"><b>🟠 Part 6 · Python & C++</b><br><small>redis-py, hiredis, redis-plus-plus</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--red);border-radius:12px;padding:12px 18px"><b>🔴 Part 7 · Scaling & HA</b><br><small>replication, Sentinel, Cluster</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--red);border-radius:12px;padding:12px 18px"><b>🔴 Part 8 · Redis vs LevelDB</b><br><small>LSM trees, SSTables, compaction, trade-offs</small></div>
+<div style="background:var(--surface0);border-left:6px solid var(--mauve);border-radius:12px;padding:12px 18px"><b>🏁 Part 9 · Production & wrap-up</b><br><small>config, monitoring, quiz, learning path</small></div>
+</div>
+
+<p>🟢 beginner → 🟡 intermediate → 🟠 practical → 🔴 advanced</p>
+</article><section class="part" id="part-1-what-is-redis"><header class="part-head"><span class="part-num">Part 1 <span aria-hidden="true">🟢</span></span><h2>What Is Redis?</h2><p>Starting from absolute zero</p></header><article class="topic" id="first-what-is-a-database"><h3><a class="anchor" href="#first-what-is-a-database">#</a>First, What Is a Database?</h3>
+<p>A <strong>database</strong> is a program whose whole job is to <strong>store data</strong> and <strong>give it back fast</strong> when asked.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  App["📱 Your app"] -- "save: user 42 = Asha" --&gt; DB[("🗄️ Database")]
+  App -- "load: user 42?" --&gt; DB
+  DB -- "Asha" --&gt; App</pre></figure><ul>
+<li>Your app could keep data in variables, but variables vanish when the app restarts</li>
+<li>A database keeps data <strong>safe</strong>, <strong>shared</strong> between many app servers, and <strong>searchable</strong></li>
+<li>Examples: MySQL, PostgreSQL, MongoDB, SQLite… and <strong>Redis</strong></li>
+</ul>
+</article><article class="topic" id="why-speed-depends-on-where-data-lives"><h3><a class="anchor" href="#why-speed-depends-on-where-data-lives">#</a>Why Speed Depends on <em>Where</em> Data Lives</h3>
+<p>A computer has a memory hierarchy. The closer to the CPU, the faster and the smaller.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Where the data is</th>
+<th>Typical read time</th>
+<th>If 1 ns were 1 second…</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CPU cache (L1)</td>
+<td>~1 ns</td>
+<td>1 second</td>
+</tr>
+<tr>
+<td><strong>RAM (main memory)</strong></td>
+<td><strong>~100 ns</strong></td>
+<td><strong>~2 minutes</strong></td>
+</tr>
+<tr>
+<td>SSD (random read)</td>
+<td>~100 µs</td>
+<td>~1 day</td>
+</tr>
+<tr>
+<td>Spinning disk (seek)</td>
+<td>~5–10 ms</td>
+<td>~2–4 months</td>
+</tr>
+<tr>
+<td>Network round trip across the world</td>
+<td>~150 ms</td>
+<td>~5 years</td>
+</tr>
+</tbody></table></div>
+<p><strong>Key idea:</strong> reading from RAM is roughly <strong>1,000× faster</strong> than reading from an SSD.</p>
+<aside class="note"><b>Note</b> These are the classic "latency numbers every programmer should know", rounded. The exact numbers vary by hardware; the ratios are what matter.</aside></article><article class="topic" id="traditional-databases-live-on-disk"><h3><a class="anchor" href="#traditional-databases-live-on-disk">#</a>Traditional Databases Live on Disk</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  Q["SQL query"] --&gt; P["Parser &amp; planner"]
+  P --&gt; BP["Buffer pool&lt;br/&gt;(RAM, a partial copy)"]
+  BP -- "cache miss" --&gt; D[("💾 Disk pages")]</pre></figure><ul>
+<li>MySQL/PostgreSQL keep the <strong>truth on disk</strong> and use RAM as a helper</li>
+<li>Great for large data, complex queries (JOINs) and strong durability</li>
+<li>But every miss means disk I/O, query planning and locking: typically <strong>milliseconds</strong></li>
+</ul>
+<p><strong>What if we kept <em>all</em> the data in RAM and made operations dead simple?</strong></p>
+</article><article class="topic" id="enter-redis"><h3><a class="anchor" href="#enter-redis">#</a>Enter Redis</h3>
+<p><strong>Redis</strong> = <strong>RE</strong>mote <strong>DI</strong>ctionary <strong>S</strong>erver</p>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px">
+<div style="background:var(--surface0);border-top:5px solid var(--red);border-radius:14px;padding:16px 20px"><b>🧠 In-memory</b><br>All data lives in RAM, so reads and writes take well under a millisecond.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--green);border-radius:14px;padding:16px 20px"><b>🔑 Key → value</b><br>Every piece of data is found by a unique key, like a giant dictionary.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--blue);border-radius:14px;padding:16px 20px"><b>🧰 Rich values</b><br>Values can be lists, sets, hashes, sorted sets, streams and more.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--peach);border-radius:14px;padding:16px 20px"><b>🌐 Server</b><br>A separate process your apps talk to over TCP. Many apps can share it.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--mauve);border-radius:14px;padding:16px 20px"><b>💾 Optional persistence</b><br>Can snapshot to disk or log every write, so data survives restarts.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--teal);border-radius:14px;padding:16px 20px"><b>📈 Scales out</b><br>Replication for copies, Cluster for splitting data across machines.</div>
+</div></article><article class="topic" id="the-mental-model-one-giant-dictionary"><h3><a class="anchor" href="#the-mental-model-one-giant-dictionary">#</a>The Mental Model: One Giant Dictionary</h3>
+<p>If you know a Python <code>dict</code> or a C++ <code>std::unordered_map</code>, you already know the core of Redis.</p>
+<pre><code class="language-python"># A Python dict lives inside ONE program and dies with it
+cache = {}
+cache[&quot;user:42:name&quot;] = &quot;Asha&quot;
+print(cache[&quot;user:42:name&quot;])   # Asha
+</code></pre>
+<pre><code class="language-text">redis&gt; SET user:42:name &quot;Asha&quot;      # lives in the Redis server
+OK
+redis&gt; GET user:42:name             # any app, any language can read it
+&quot;Asha&quot;
+</code></pre>
+<p>Redis is that dictionary, but <strong>shared over the network</strong>, <strong>very fast</strong>, <strong>optionally persistent</strong>, and with <strong>smart value types</strong>.</p>
+</article><article class="topic" id="a-short-history"><h3><a class="anchor" href="#a-short-history">#</a>A Short History</h3>
+<figure class="diagram"><pre class="mermaid">timeline
+  2009 : Salvatore Sanfilippo (antirez) writes Redis to speed up a real-time web analytics startup
+  2010-2015 : Persistence, replication, Lua scripting, Sentinel (HA), Cluster (3.0)
+  2018 : Streams arrive (5.0)
+  2020 : ACLs, TLS, threaded I/O (6.0)
+  2024 : License moves away from BSD → Linux Foundation forks it as Valkey
+  2025 : Redis 8 adds AGPLv3 option and folds JSON, search, time series, vector sets into core</pre></figure><ul>
+<li>Written in <strong>C</strong>, famous for small, readable source code</li>
+<li>Consistently among the most popular key-value stores and one of the most used databases overall</li>
+</ul>
+<aside class="note"><b>Note</b> Licensing: in March 2024 Redis moved from BSD to RSALv2/SSPLv1; Valkey was forked from 7.2.4. In 2025 Redis 8 added AGPLv3 as an option.</aside></article><article class="topic" id="who-uses-redis-and-for-what"><h3><a class="anchor" href="#who-uses-redis-and-for-what">#</a>Who Uses Redis, and For What?</h3>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:10px;text-align:center">
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">⚡</div><b>Caching</b><br><small>speed up slow DBs & APIs</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🔐</div><b>Sessions</b><br><small>login state for web apps</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🏆</div><b>Leaderboards</b><br><small>ranked scores in real time</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🚦</div><b>Rate limiting</b><br><small>stop API abuse</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">📬</div><b>Queues</b><br><small>background jobs</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">💬</div><b>Pub/Sub</b><br><small>chat, notifications</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">📍</div><b>Geo</b><br><small>"drivers near me"</small></div>
+<div style="background:var(--surface0);border-radius:14px;padding:18px"><div style="font-size:2.2em">🤖</div><b>AI</b><br><small>vector search, LLM caches</small></div>
+</div>
+
+<p>We&#39;ll build every one of these later in this guide.</p>
+</article><article class="topic" id="getting-redis-running"><h3><a class="anchor" href="#getting-redis-running">#</a>Getting Redis Running</h3>
+<pre><code class="language-bash"># Docker (any OS) – easiest
+docker run -d --name redis -p 6379:6379 redis:latest
+
+# macOS
+brew install redis &amp;&amp; brew services start redis
+
+# Ubuntu / Debian
+sudo apt install redis-server &amp;&amp; sudo systemctl start redis-server
+</code></pre>
+<p>Then open the command-line client:</p>
+<pre><code class="language-bash">redis-cli            # connects to 127.0.0.1:6379 by default
+127.0.0.1:6379&gt; PING
+PONG
+</code></pre>
+<p><strong>6379</strong> is Redis&#39;s default port.</p>
+</article><article class="topic" id="your-first-commands"><h3><a class="anchor" href="#your-first-commands">#</a>Your First Commands</h3>
+<pre><code class="language-text">127.0.0.1:6379&gt; SET greeting &quot;hello world&quot;
+OK
+127.0.0.1:6379&gt; GET greeting
+&quot;hello world&quot;
+127.0.0.1:6379&gt; EXISTS greeting
+(integer) 1
+127.0.0.1:6379&gt; DEL greeting
+(integer) 1
+127.0.0.1:6379&gt; GET greeting
+(nil)
+</code></pre>
+<ul>
+<li><code>SET key value</code> stores, <code>GET key</code> reads</li>
+<li><code>(nil)</code> means &quot;no such key&quot;</li>
+<li>Commands are <strong>case-insensitive</strong>; keys and values are <strong>case-sensitive</strong></li>
+</ul>
+</article><article class="topic" id="counters-are-built-in"><h3><a class="anchor" href="#counters-are-built-in">#</a>Counters Are Built In</h3>
+<pre><code class="language-text">127.0.0.1:6379&gt; SET page:home:views 0
+OK
+127.0.0.1:6379&gt; INCR page:home:views
+(integer) 1
+127.0.0.1:6379&gt; INCRBY page:home:views 10
+(integer) 11
+127.0.0.1:6379&gt; DECR page:home:views
+(integer) 10
+</code></pre>
+<p><strong>Why not just <code>GET</code>, add 1, then <code>SET</code>?</strong> Two app servers could race:</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant A as Server A
+  participant R as Redis
+  participant B as Server B
+  A-&gt;&gt;R: GET views → 10
+  B-&gt;&gt;R: GET views → 10
+  A-&gt;&gt;R: SET views 11
+  B-&gt;&gt;R: SET views 11
+  Note over R: Lost update! Should be 12</pre></figure><p><code>INCR</code> is <strong>atomic</strong>: Redis does read + add + write as one indivisible step.</p>
+</article><article class="topic" id="keys-that-expire-automatically"><h3><a class="anchor" href="#keys-that-expire-automatically">#</a>Keys That Expire Automatically</h3>
+<p>Every key can have a <strong>time-to-live (TTL)</strong>. When it runs out, Redis deletes the key for you.</p>
+<pre><code class="language-text">127.0.0.1:6379&gt; SET otp:9876543210 &quot;482913&quot; EX 300    # expires in 300 s
+OK
+127.0.0.1:6379&gt; TTL otp:9876543210
+(integer) 297
+127.0.0.1:6379&gt; PERSIST otp:9876543210                # remove the timer
+(integer) 1
+127.0.0.1:6379&gt; EXPIRE otp:9876543210 60              # set a new timer
+(integer) 1
+</code></pre>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  S["SET … EX 300"] --&gt; L["⏳ key alive&lt;br/&gt;TTL counting down"] --&gt; X["🗑️ key gone&lt;br/&gt;GET returns nil"]</pre></figure><p>This one feature is what makes Redis a natural <strong>cache</strong> and <strong>session store</strong>.</p>
+</article><article class="topic" id="naming-keys-well"><h3><a class="anchor" href="#naming-keys-well">#</a>Naming Keys Well</h3>
+<p>Redis has no tables. Structure lives in your <strong>key names</strong>. The common convention is <code>object-type:id:field</code> with colons.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Good key</th>
+<th>What it holds</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>user:42</code></td>
+<td>hash with user 42&#39;s profile</td>
+</tr>
+<tr>
+<td><code>user:42:followers</code></td>
+<td>set of follower ids</td>
+</tr>
+<tr>
+<td><code>session:8f3a…</code></td>
+<td>session data</td>
+</tr>
+<tr>
+<td><code>rate:api:203.0.113.9</code></td>
+<td>request counter for an IP</td>
+</tr>
+<tr>
+<td><code>leaderboard:2026-09</code></td>
+<td>sorted set of scores this month</td>
+</tr>
+</tbody></table></div>
+<ul>
+<li>Keep keys readable but not huge (they cost memory)</li>
+<li>Keys can be any binary string up to 512 MB, but please don&#39;t do that 🙂</li>
+<li>Redis has 16 numbered databases (<code>SELECT 0..15</code>); prefer <strong>key prefixes</strong> instead</li>
+</ul>
+</article><article class="topic recap" id="recap-of-part-1"><h3><a class="anchor" href="#recap-of-part-1">#</a>Recap of Part 1 ✅</h3>
+<ul>
+<li>Redis is an <strong>in-memory key-value data structure server</strong></li>
+<li>RAM is ~1000× faster than SSD, so Redis answers in <strong>microseconds</strong></li>
+<li><code>SET</code>, <code>GET</code>, <code>DEL</code>, <code>EXISTS</code>, <code>INCR</code>, <code>EXPIRE</code>, <code>TTL</code> are your first tools</li>
+<li>Atomic commands avoid race conditions</li>
+<li>TTLs make keys disappear automatically</li>
+</ul>
+<p><strong>Next:</strong> the &quot;smart values&quot; that make Redis more than a dictionary.</p>
+</article></section><section class="part" id="part-2-data-types"><header class="part-head"><span class="part-num">Part 2 <span aria-hidden="true">🟢</span></span><h2>Data Types</h2><p>Redis values are data structures, not just strings</p></header><article class="topic" id="the-data-type-family"><h3><a class="anchor" href="#the-data-type-family">#</a>The Data Type Family</h3>
+<figure class="diagram"><pre class="mermaid">mindmap
+  root((Redis&lt;br/&gt;values))
+    Core
+      String
+      List
+      Hash
+      Set
+      Sorted Set
+    Special
+      Stream
+      Bitmap
+      HyperLogLog
+      Geospatial
+      Bitfield
+    Redis 8 / modules
+      JSON
+      Vector Set
+      Time Series
+      Bloom &amp; Cuckoo filters</pre></figure><p>Pick the right structure and Redis does the hard work (sorting, uniqueness, ranking) <strong>on the server</strong>.</p>
+</article><article class="topic" id="1-strings"><h3><a class="anchor" href="#1-strings">#</a>1 · Strings</h3>
+<p>The simplest type: a key maps to a <strong>binary-safe</strong> blob up to <strong>512 MB</strong>. Text, numbers, JSON, even JPEG bytes.</p>
+<div style="display:flex;align-items:center;gap:16px;margin:14px 0">
+<div style="background:var(--surface1);border-radius:10px;padding:10px 18px;font-family:var(--font-mono)">user:42:name</div><div style="font-size:1.6em">→</div>
+<div style="background:var(--surface0);border:2px solid var(--green);border-radius:10px;padding:10px 18px;font-family:var(--font-mono)">"Asha"</div>
+</div>
+
+<pre><code class="language-text">SET  user:42:name &quot;Asha&quot;
+GET  user:42:name
+MSET a 1 b 2 c 3          # set many at once
+MGET a b c                # read many at once → 1, 2, 3
+APPEND log &quot;line\n&quot;       # add to the end
+SETNX lock:job1 &quot;me&quot;      # set only if Not eXists → 1 or 0
+INCRBYFLOAT price 2.5     # floating point math
+GETRANGE big 0 99         # first 100 bytes
+</code></pre>
+<p><strong>Use for:</strong> cached HTML/JSON, counters, flags, simple locks.</p>
+</article><article class="topic" id="2-lists"><h3><a class="anchor" href="#2-lists">#</a>2 · Lists</h3>
+<p>An <strong>ordered sequence</strong> of strings. Push and pop at <strong>both ends</strong> in O(1).</p>
+<div style="display:flex;align-items:center;gap:8px;margin:14px 0;font-family:var(--font-mono)">
+<span>LPUSH →</span>
+<span style="background:var(--surface0);border:2px solid var(--blue);border-radius:8px;padding:8px 14px">"c"</span>
+<span style="background:var(--surface0);border:2px solid var(--blue);border-radius:8px;padding:8px 14px">"b"</span>
+<span style="background:var(--surface0);border:2px solid var(--blue);border-radius:8px;padding:8px 14px">"a"</span>
+<span>← RPUSH</span>
+<span style="margin-left:18px;color:var(--subtext0)">index 0 · 1 · 2 (or -3 · -2 · -1)</span>
+</div>
+
+<pre><code class="language-text">RPUSH tasks &quot;email&quot; &quot;resize&quot; &quot;backup&quot;   # → [email, resize, backup]
+LPOP  tasks                             # &quot;email&quot;
+LRANGE tasks 0 -1                       # everything: resize, backup
+LLEN  tasks                             # 2
+LTRIM feed:42 0 99                      # keep only newest 100 items
+BRPOP tasks 5                           # Blocking pop: wait up to 5 s
+</code></pre>
+<p><strong>Use for:</strong> job queues, activity feeds, &quot;last N items&quot; lists.
+<strong>Careful:</strong> reaching the middle (<code>LINDEX</code>, <code>LINSERT</code>) is O(N).</p>
+</article><article class="topic" id="3-hashes"><h3><a class="anchor" href="#3-hashes">#</a>3 · Hashes</h3>
+<p>A key that holds a <strong>small map of field → value</strong>. Perfect for objects.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  K["🔑 user:42"] --&gt; H
+  subgraph H["hash"]
+    direction TB
+    f1["name → Asha"]
+    f2["email → asha@example.com"]
+    f3["city → Pune"]
+    f4["logins → 17"]
+  end</pre></figure><pre><code class="language-text">HSET    user:42 name &quot;Asha&quot; email &quot;asha@example.com&quot; city &quot;Pune&quot;
+HGET    user:42 city                 # &quot;Pune&quot;
+HMGET   user:42 name email
+HINCRBY user:42 logins 1
+HGETALL user:42                      # all fields and values
+HDEL    user:42 city
+HEXPIRE user:42 60 FIELDS 1 otp      # per-field TTL (Redis 7.4+)
+</code></pre>
+<p><strong>Why not one JSON string?</strong> With a hash you can read or update <strong>one field</strong> without rewriting the whole object.</p>
+</article><article class="topic" id="4-sets"><h3><a class="anchor" href="#4-sets">#</a>4 · Sets</h3>
+<p>An <strong>unordered collection of unique strings</strong>. Adding a duplicate does nothing.</p>
+<div style="display:flex;align-items:center;gap:22px;margin:12px 0;flex-wrap:wrap">
+<div style="border:2px dashed var(--blue);border-radius:18px;padding:10px 16px"><small>tags:post:1</small><br><span style="background:var(--surface0);border:2px solid var(--blue);border-radius:999px;padding:6px 14px">redis</span> <span style="background:var(--surface0);border:2px solid var(--blue);border-radius:999px;padding:6px 14px">cache</span> <span style="background:var(--surface0);border:2px solid var(--blue);border-radius:999px;padding:6px 14px">nosql</span></div>
+<div style="font-size:1.6em">∩</div>
+<div style="border:2px dashed var(--mauve);border-radius:18px;padding:10px 16px"><small>tags:post:2</small><br><span style="background:var(--surface0);border:2px solid var(--mauve);border-radius:999px;padding:6px 14px">redis</span> <span style="background:var(--surface0);border:2px solid var(--mauve);border-radius:999px;padding:6px 14px">python</span></div>
+<div style="font-size:1.6em">=</div>
+<div style="border:2px solid var(--green);border-radius:18px;padding:10px 16px"><small>SINTER</small><br><span style="background:var(--surface0);border:2px solid var(--green);border-radius:999px;padding:6px 14px">redis</span></div>
+</div>
+
+<pre><code class="language-text">SADD      online:users 42 7 99 42   # returns 3 (42 counted once)
+SISMEMBER online:users 7            # 1 = yes, O(1)
+SCARD     online:users              # size → 3
+SMEMBERS  online:users              # all members (careful when huge)
+SINTER    follows:asha follows:ravi # mutual follows
+SUNION    a b    SDIFF a b          # union / difference
+SRANDMEMBER prizes 3                # random picks
+</code></pre>
+<p><strong>Use for:</strong> tags, unique visitors (small scale), &quot;who liked this&quot;, friend graphs.</p>
+</article><article class="topic" id="5-sorted-sets-zsets"><h3><a class="anchor" href="#5-sorted-sets-zsets">#</a>5 · Sorted Sets (ZSETs) ⭐</h3>
+<p>Like a set, but every member has a <strong>score</strong>. Members are always kept <strong>sorted by score</strong>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Member</th>
+<th>Score</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>🥇 0</td>
+<td><code>priya</code></td>
+<td>9820</td>
+</tr>
+<tr>
+<td>🥈 1</td>
+<td><code>arjun</code></td>
+<td>9410</td>
+</tr>
+<tr>
+<td>🥉 2</td>
+<td><code>meera</code></td>
+<td>8875</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>kabir</code></td>
+<td>7002</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-text">ZADD    game:lb 9820 priya 9410 arjun 8875 meera 7002 kabir
+ZINCRBY game:lb 50 kabir                 # kabir scores 50 more
+ZREVRANGE game:lb 0 2 WITHSCORES         # top 3
+ZREVRANK  game:lb meera                  # meera&#39;s rank → 2
+ZRANGEBYSCORE game:lb 8000 +inf          # everyone ≥ 8000
+ZREMRANGEBYSCORE window 0 1726500000     # drop old entries
+</code></pre>
+<p>Add, remove and rank are <strong>O(log N)</strong>. This single type powers leaderboards, priority queues, sliding-window rate limiters and time indexes.</p>
+</article><article class="topic" id="6-streams"><h3><a class="anchor" href="#6-streams">#</a>6 · Streams</h3>
+<p>An <strong>append-only log</strong> of entries, each with an auto-generated, time-based ID. Think &quot;Kafka-lite inside Redis&quot;.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  P1["Producer"] -- XADD --&gt; S
+  subgraph S["stream: orders"]
+    direction LR
+    e1["1726…-0&lt;br/&gt;item=pen"] --&gt; e2["1726…-1&lt;br/&gt;item=ink"] --&gt; e3["1727…-0&lt;br/&gt;item=pad"]
+  end
+  S -- XREADGROUP --&gt; G1["👷 worker-1"]
+  S -- XREADGROUP --&gt; G2["👷 worker-2"]</pre></figure><pre><code class="language-text">XADD orders * item pen qty 2              # * = auto ID (ms-seq)
+XRANGE orders - +                         # read all
+XGROUP CREATE orders billing $ MKSTREAM   # a consumer group
+XREADGROUP GROUP billing w1 COUNT 10 BLOCK 2000 STREAMS orders &gt;
+XACK orders billing 1726500000000-0       # mark as processed
+</code></pre>
+<p>Consumer groups give <strong>load balancing</strong>, <strong>acknowledgements</strong> and <strong>replay</strong>, which plain lists can&#39;t.</p>
+</article><article class="topic" id="7-bitmaps-bitfields"><h3><a class="anchor" href="#7-bitmaps-bitfields">#</a>7 · Bitmaps &amp; Bitfields</h3>
+<p>A string treated as an <strong>array of bits</strong>. One bit per user = tiny memory.</p>
+<div style="display:flex;gap:4px;margin:14px 0;font-family:var(--font-mono)">
+<span style="padding:6px 10px;background:var(--green);color:var(--crust);border-radius:4px">1</span>
+<span style="padding:6px 10px;background:var(--surface1);border-radius:4px">0</span>
+<span style="padding:6px 10px;background:var(--green);color:var(--crust);border-radius:4px">1</span>
+<span style="padding:6px 10px;background:var(--green);color:var(--crust);border-radius:4px">1</span>
+<span style="padding:6px 10px;background:var(--surface1);border-radius:4px">0</span>
+<span style="padding:6px 10px;background:var(--surface1);border-radius:4px">0</span>
+<span style="padding:6px 10px;background:var(--green);color:var(--crust);border-radius:4px">1</span>
+<span style="margin-left:14px;color:var(--subtext0)">← bit N = "did user N log in today?"</span>
+</div>
+
+<pre><code class="language-text">SETBIT  login:2026-09-17 42 1        # user 42 logged in
+GETBIT  login:2026-09-17 42          # 1
+BITCOUNT login:2026-09-17            # daily active users
+BITOP AND streak login:2026-09-16 login:2026-09-17   # both days
+</code></pre>
+<p><strong>100 million users ≈ 12 MB</strong> per day. <code>BITFIELD</code> packs small integers (e.g. <code>u8</code> counters) the same way.</p>
+</article><article class="topic" id="8-hyperloglog"><h3><a class="anchor" href="#8-hyperloglog">#</a>8 · HyperLogLog</h3>
+<p>Counts <strong>unique items approximately</strong> using at most <strong>12 KB</strong>, no matter if you add 1 thousand or 1 billion items.</p>
+<pre><code class="language-text">PFADD   visitors:2026-09-17 &quot;ip1&quot; &quot;ip2&quot; &quot;ip1&quot; &quot;ip3&quot;
+PFCOUNT visitors:2026-09-17          # ≈ 3
+PFMERGE visitors:week visitors:2026-09-11 … visitors:2026-09-17
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>Memory for 100M unique IDs</th>
+<th>Error</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Set of IDs</td>
+<td>several GB</td>
+<td>exact</td>
+</tr>
+<tr>
+<td>HyperLogLog</td>
+<td><strong>12 KB</strong></td>
+<td><strong>~0.81 %</strong></td>
+</tr>
+</tbody></table></div>
+<p>The trick: hash each item and remember only the <strong>longest run of leading zeros</strong> seen per bucket. Rare long runs imply many distinct items.</p>
+</article><article class="topic" id="9-geospatial"><h3><a class="anchor" href="#9-geospatial">#</a>9 · Geospatial</h3>
+<p>Store points by longitude/latitude, then search by radius or box. Internally it&#39;s a <strong>sorted set</strong> whose score is a 52-bit <strong>geohash</strong>.</p>
+<pre><code class="language-text">GEOADD drivers 72.8777 19.0760 &quot;d1&quot; 72.8311 18.9220 &quot;d2&quot; 73.8567 18.5204 &quot;d3&quot;
+GEODIST drivers d1 d2 km                         # ≈ 17.7
+GEOSEARCH drivers FROMLONLAT 72.87 19.07 BYRADIUS 20 km ASC WITHDIST
+</code></pre>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  U["📍 rider"] --&gt;|"within 20 km"| D1["🚗 d1 · 0.9 km"]
+  U --&gt; D2["🚗 d2 · 17 km"]
+  U -.-&gt;|"too far"| D3["🚗 d3 (Pune)"]</pre></figure><p><strong>Use for:</strong> nearby drivers, stores, friends.</p>
+</article><article class="topic" id="10-json-vector-sets-redis-8"><h3><a class="anchor" href="#10-json-vector-sets-redis-8">#</a>10 · JSON &amp; Vector Sets (Redis 8)</h3>
+<p><strong>JSON:</strong> store nested documents and update paths in place.</p>
+<pre><code class="language-text">JSON.SET  product:1 $ &#39;{&quot;name&quot;:&quot;Pen&quot;,&quot;price&quot;:20,&quot;tags&quot;:[&quot;blue&quot;]}&#39;
+JSON.NUMINCRBY product:1 $.price 5
+JSON.GET  product:1 $.name
+</code></pre>
+<p><strong>Vector sets:</strong> store embeddings and find the most <strong>similar</strong> items (semantic search, recommendations, RAG for LLMs).</p>
+<pre><code class="language-text">VADD  docs VALUES 3 0.12 0.80 0.33 &quot;doc:1&quot;
+VSIM  docs VALUES 3 0.10 0.79 0.30 COUNT 5     # 5 nearest neighbours
+</code></pre>
+<p>With the <strong>Redis Query Engine</strong> (<code>FT.CREATE</code>, <code>FT.SEARCH</code>) you can also index hashes/JSON for full-text, numeric, tag and vector queries.</p>
+</article><article class="topic" id="choosing-the-right-type"><h3><a class="anchor" href="#choosing-the-right-type">#</a>Choosing the Right Type</h3>
+<p><strong>&quot;What do I need?&quot;</strong> → pick the structure.</p>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px">
+<div style="background:var(--surface0);border-left:6px solid var(--green);border-radius:12px;padding:12px 18px">A value or counter<br><b style="color:var(--green)">→ String</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--blue);border-radius:12px;padding:12px 18px">An object with fields<br><b style="color:var(--blue)">→ Hash / JSON</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--peach);border-radius:12px;padding:12px 18px">Arrival order, a queue<br><b style="color:var(--peach)">→ List · Stream</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--mauve);border-radius:12px;padding:12px 18px">Uniqueness, membership<br><b style="color:var(--mauve)">→ Set</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--yellow);border-radius:12px;padding:12px 18px">Ranking, by score or time<br><b style="color:var(--yellow)">→ Sorted Set</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--teal);border-radius:12px;padding:12px 18px">Count uniques cheaply<br><b style="color:var(--teal)">→ HyperLogLog</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--sky);border-radius:12px;padding:12px 18px">Yes/no per id<br><b style="color:var(--sky)">→ Bitmap</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--red);border-radius:12px;padding:12px 18px">Nearby things<br><b style="color:var(--red)">→ Geo</b></div>
+<div style="background:var(--surface0);border-left:6px solid var(--pink);border-radius:12px;padding:12px 18px">Similar things<br><b style="color:var(--pink)">→ Vector Set</b></div>
+</div></article><article class="topic" id="commands-that-work-on-any-key"><h3><a class="anchor" href="#commands-that-work-on-any-key">#</a>Commands That Work on Any Key</h3>
+<pre><code class="language-text">TYPE user:42                 # hash
+DEL k1 k2                    # delete (blocking free of memory)
+UNLINK bigkey                # delete, free memory in background
+RENAME old new
+EXPIRE k 60   PEXPIRE k 500  # seconds / milliseconds
+TTL k         PTTL k         # -1 = no expiry, -2 = no key
+SCAN 0 MATCH user:* COUNT 100   # iterate keys safely
+OBJECT ENCODING user:42      # listpack / hashtable …
+MEMORY USAGE user:42         # bytes used
+</code></pre>
+<p>⚠️ <strong>Never run <code>KEYS *</code> in production.</strong> It walks every key in one go and freezes the server. Use <code>SCAN</code>.</p>
+</article><article class="topic recap" id="recap-of-part-2"><h3><a class="anchor" href="#recap-of-part-2">#</a>Recap of Part 2 ✅</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Think of it as</th>
+<th>Signature commands</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>String</td>
+<td>a variable</td>
+<td><code>SET</code> <code>GET</code> <code>INCR</code></td>
+</tr>
+<tr>
+<td>List</td>
+<td>a deque</td>
+<td><code>LPUSH</code> <code>RPOP</code> <code>BRPOP</code></td>
+</tr>
+<tr>
+<td>Hash</td>
+<td>an object / struct</td>
+<td><code>HSET</code> <code>HGET</code> <code>HINCRBY</code></td>
+</tr>
+<tr>
+<td>Set</td>
+<td>a bag of unique things</td>
+<td><code>SADD</code> <code>SISMEMBER</code> <code>SINTER</code></td>
+</tr>
+<tr>
+<td>Sorted set</td>
+<td>a ranked list</td>
+<td><code>ZADD</code> <code>ZRANGE</code> <code>ZRANK</code></td>
+</tr>
+<tr>
+<td>Stream</td>
+<td>an event log</td>
+<td><code>XADD</code> <code>XREADGROUP</code> <code>XACK</code></td>
+</tr>
+<tr>
+<td>Bitmap / HLL</td>
+<td>compact counters</td>
+<td><code>SETBIT</code> <code>PFADD</code> <code>PFCOUNT</code></td>
+</tr>
+<tr>
+<td>Geo / Vector</td>
+<td>location / similarity search</td>
+<td><code>GEOSEARCH</code> <code>VSIM</code></td>
+</tr>
+</tbody></table></div>
+</article></section><section class="part" id="part-3-how-redis-works"><header class="part-head"><span class="part-num">Part 3 <span aria-hidden="true">🟡</span></span><h2>How Redis Works</h2><p>Under the hood: protocol, threads, memory, expiry, persistence</p></header><article class="topic" id="the-big-picture"><h3><a class="anchor" href="#the-big-picture">#</a>The Big Picture</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph Clients
+    C1["🐍 Python app"]
+    C2["⚙️ C++ service"]
+    C3["💻 redis-cli"]
+  end
+  C1 &amp; C2 &amp; C3 -- "TCP :6379&lt;br/&gt;RESP protocol" --&gt; EL
+  subgraph Server["Redis server process"]
+    EL["🔁 Event loop&lt;br/&gt;(one main thread)"] --&gt; CMD["Command table&lt;br/&gt;SET, GET, ZADD…"]
+    CMD --&gt; DS[("🧠 In-memory&lt;br/&gt;dictionary")]
+    DS -.-&gt; RDB["💾 RDB snapshots"]
+    DS -.-&gt; AOF["📜 Append-only file"]
+    DS -.-&gt; REP["📡 Replicas"]
+  end</pre></figure><p>We&#39;ll zoom into each box, one at a time.</p>
+</article><article class="topic" id="step-1-talking-to-redis-resp"><h3><a class="anchor" href="#step-1-talking-to-redis-resp">#</a>Step 1 · Talking to Redis: RESP</h3>
+<p>Clients and server speak <strong>RESP</strong> (REdis Serialization Protocol), a simple text-based format.</p>
+<p>The command <code>SET name Asha</code> is sent over TCP as:</p>
+<pre><code class="language-text">*3\r\n          ← an array of 3 elements
+$3\r\nSET\r\n   ← bulk string, 3 bytes
+$4\r\nname\r\n  ← bulk string, 4 bytes
+$4\r\nAsha\r\n  ← bulk string, 4 bytes
+</code></pre>
+<p>Replies use a first-byte type marker:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Meaning</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>+</code></td>
+<td>simple string</td>
+<td><code>+OK</code></td>
+</tr>
+<tr>
+<td><code>-</code></td>
+<td>error</td>
+<td><code>-ERR unknown command</code></td>
+</tr>
+<tr>
+<td><code>:</code></td>
+<td>integer</td>
+<td><code>:42</code></td>
+</tr>
+<tr>
+<td><code>$</code></td>
+<td>bulk string</td>
+<td><code>$4\r\nAsha</code> · <code>$-1</code> = nil</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>array</td>
+<td><code>*2 …</code></td>
+</tr>
+</tbody></table></div>
+<p>RESP3 (Redis 6+) adds maps, sets, doubles and push messages. Easy to parse → fast.</p>
+</article><article class="topic" id="step-2-one-thread-one-loop"><h3><a class="anchor" href="#step-2-one-thread-one-loop">#</a>Step 2 · One Thread, One Loop</h3>
+<p>Redis executes commands on <strong>a single main thread</strong>, one command at a time.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  W["⏳ epoll / kqueue&lt;br/&gt;wait for ready sockets"] --&gt; R["📥 read bytes from ready clients"]
+  R --&gt; P["🧩 parse RESP into commands"]
+  P --&gt; E["⚙️ execute each command&lt;br/&gt;against memory"]
+  E --&gt; Wr["📤 write replies"]
+  Wr --&gt; T["⏰ timers: expire keys,&lt;br/&gt;stats, background checks"]
+  T --&gt; W</pre></figure><p>This is the <strong>reactor pattern</strong>: a single thread watches thousands of sockets with <strong>I/O multiplexing</strong> (<code>epoll</code> on Linux, <code>kqueue</code> on macOS).</p>
+</article><article class="topic" id="why-is-single-threaded-so-fast"><h3><a class="anchor" href="#why-is-single-threaded-so-fast">#</a>Why Is Single-Threaded So Fast?</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ No locks</b><br>Only one thread touches the data, so no mutexes, no deadlocks, no contention.</div>
+<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ No context switches</b><br>The CPU stays hot on one core with warm caches.</div>
+<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ Memory is the bottleneck, not CPU</b><br>Most commands take microseconds of CPU; network I/O dominates.</div>
+<div style="background:var(--surface0);border-left:5px solid var(--green);border-radius:12px;padding:14px 20px"><b>✅ Atomic for free</b><br>Every command runs start to finish with nobody else interleaving.</div>
+</div>
+
+<p>A single instance commonly serves <strong>100k+ simple operations per second</strong>, and far more with pipelining.</p>
+<p><strong>The catch ⚠️</strong> One slow command (<code>KEYS *</code>, <code>SMEMBERS</code> on 10M items, a long Lua script) <strong>blocks everyone</strong>.</p>
+</article><article class="topic" id="threads-redis-does-use"><h3><a class="anchor" href="#threads-redis-does-use">#</a>Threads Redis <em>Does</em> Use</h3>
+<p>Single-threaded <strong>command execution</strong> does not mean a single-threaded <strong>process</strong>.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph P["redis-server"]
+    M["🧵 Main thread&lt;br/&gt;executes commands"]
+    IO["🧵🧵 I/O threads (6.0+)&lt;br/&gt;read/write sockets"]
+    BIO["🧵 Background (BIO)&lt;br/&gt;fsync, close files, lazy free"]
+  end
+  F["👶 Forked child&lt;br/&gt;RDB save / AOF rewrite"]
+  M -. fork .-&gt; F</pre></figure><ul>
+<li><code>io-threads 4</code> offloads socket reads/writes, helpful when network is the bottleneck</li>
+<li><code>UNLINK</code>, <code>FLUSHALL ASYNC</code> free big values in a background thread</li>
+<li>Persistence work happens in a <strong>forked child process</strong></li>
+</ul>
+</article><article class="topic" id="step-3-how-keys-are-stored"><h3><a class="anchor" href="#step-3-how-keys-are-stored">#</a>Step 3 · How Keys Are Stored</h3>
+<p>The keyspace is a <strong>hash table</strong>: hash the key, jump to a bucket, done. Average <strong>O(1)</strong>.</p>
+<div style="display:flex;align-items:center;gap:14px;margin:12px 0">
+<div style="background:var(--surface1);border-radius:8px;padding:8px 14px;font-family:var(--font-mono)">"user:42"</div><div>→ hash() mod 8 = <b>5</b> →</div>
+<div style="display:grid;grid-template-columns:repeat(8,auto);gap:6px"><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">0</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">1</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">2</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">3</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">4</div><div style="background:var(--surface0);border:2px solid var(--green);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">5<br><small>user:42 → user:7</small></div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">6</div><div style="background:var(--surface0);border:2px solid var(--surface2);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--font-mono)">7</div></div>
+</div>
+
+<p><strong>Incremental rehashing:</strong> when the table fills up, Redis allocates a table twice as large and moves buckets <strong>a few at a time</strong> on each operation, so there&#39;s never a long pause.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  O["old table ht[0]&lt;br/&gt;████░░░░ migrating"] -- "move a bucket per op" --&gt; N["new table ht[1]&lt;br/&gt;(2× size)"]</pre></figure></article><article class="topic" id="strings-inside-sds"><h3><a class="anchor" href="#strings-inside-sds">#</a>Strings Inside: SDS</h3>
+<p>Redis doesn&#39;t use raw C strings. It uses <strong>SDS</strong> (Simple Dynamic String):</p>
+<pre><code class="language-text">┌────────┬────────┬───────┬──────────────────────┬────┐
+│  len   │ alloc  │ flags │  buf: &quot;Asha&quot;         │ \0 │
+└────────┴────────┴───────┴──────────────────────┴────┘
+</code></pre>
+<ul>
+<li><strong>O(1) length</strong> (stored, not counted)</li>
+<li><strong>Binary safe</strong>: can contain <code>\0</code> bytes (images, protobufs)</li>
+<li><strong>Pre-allocates</strong> spare room so repeated <code>APPEND</code> is cheap</li>
+</ul>
+<p>Small strings use compact encodings too:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Encoding</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>int</code></td>
+<td>value looks like a 64-bit integer</td>
+</tr>
+<tr>
+<td><code>embstr</code></td>
+<td>≤ 44 bytes, stored in the same allocation as the object</td>
+</tr>
+<tr>
+<td><code>raw</code></td>
+<td>anything larger</td>
+</tr>
+</tbody></table></div>
+</article><article class="topic" id="two-encodings-per-type"><h3><a class="anchor" href="#two-encodings-per-type">#</a>Two Encodings Per Type</h3>
+<p>Each type switches between a <strong>compact</strong> encoding (small data) and a <strong>fast</strong> one (big data), automatically.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Small → compact</th>
+<th>Large → fast</th>
+<th>Default switch point</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Hash</td>
+<td>listpack</td>
+<td>hashtable</td>
+<td>&gt; 128 fields or value &gt; 64 bytes</td>
+</tr>
+<tr>
+<td>Set</td>
+<td>intset / listpack</td>
+<td>hashtable</td>
+<td>&gt; 512 ints / &gt; 128 items</td>
+</tr>
+<tr>
+<td>Sorted set</td>
+<td>listpack</td>
+<td><strong>skiplist + hashtable</strong></td>
+<td>&gt; 128 items or &gt; 64 bytes</td>
+</tr>
+<tr>
+<td>List</td>
+<td>listpack</td>
+<td>quicklist (linked listpacks)</td>
+<td>&gt; 8 KB node</td>
+</tr>
+</tbody></table></div>
+<pre><code class="language-text">redis&gt; HSET small a 1
+redis&gt; OBJECT ENCODING small     → &quot;listpack&quot;
+</code></pre>
+<p>A <strong>listpack</strong> is one contiguous memory block: cache-friendly and tiny, but O(N) to search. Fine when N ≤ 128.</p>
+</article><article class="topic" id="the-skip-list-behind-sorted-sets"><h3><a class="anchor" href="#the-skip-list-behind-sorted-sets">#</a>The Skip List (behind Sorted Sets)</h3>
+<p>A sorted linked list with <strong>express lanes</strong>. Searching skips ahead, giving <strong>O(log N)</strong> on average.</p>
+<pre><code class="language-text">Level 3:  HEAD ─────────────────────────────▶ 70 ──────────────▶ NIL
+Level 2:  HEAD ──────────▶ 30 ──────────────▶ 70 ──────▶ 90 ───▶ NIL
+Level 1:  HEAD ──▶ 10 ──▶ 30 ──▶ 50 ──▶ 60 ──▶ 70 ──▶ 80 ──▶ 90 ──▶ NIL
+</code></pre>
+<p>To find <strong>60</strong>: ride level 3 to 70 (too far) → drop to level 2: 30 → drop to level 1: 50 → 60 ✅</p>
+<ul>
+<li>Each node gets a random height (coin flips), so no complex rebalancing like trees</li>
+<li>Nodes store <strong>span</strong> counts, so <code>ZRANK</code> is also O(log N)</li>
+<li>A <strong>hash table</strong> alongside maps member → score for O(1) <code>ZSCORE</code></li>
+</ul>
+</article><article class="topic" id="step-4-expiration-lazy-active"><h3><a class="anchor" href="#step-4-expiration-lazy-active">#</a>Step 4 · Expiration: Lazy + Active</h3>
+<p>How does Redis delete millions of expiring keys without scanning all of them?</p>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  subgraph Lazy["😴 Lazy (passive)"]
+    direction LR
+    G["GET k"] --&gt; C{"expired?"}
+    C -- yes --&gt; D["delete, return nil"]
+    C -- no --&gt; V["return value"]
+  end
+  subgraph Active["🏃 Active (background)"]
+    direction LR
+    S["~10×/sec: sample 20 keys&lt;br/&gt;with a TTL"] --&gt; E["delete expired ones"]
+    E --&gt; Q{"&gt;25% were expired?"}
+    Q -- yes --&gt; S
+    Q -- no --&gt; Z["sleep until next tick"]
+  end</pre></figure><ul>
+<li>Lazy alone would leak memory for keys nobody reads</li>
+<li>Active sampling keeps expired garbage <strong>below ~25%</strong> with bounded CPU</li>
+<li>Replicas don&#39;t expire keys themselves; the primary sends them <code>DEL</code></li>
+</ul>
+</article><article class="topic" id="step-5-running-out-of-memory"><h3><a class="anchor" href="#step-5-running-out-of-memory">#</a>Step 5 · Running Out of Memory</h3>
+<p>Set a limit with <code>maxmemory 2gb</code>. When it&#39;s reached, <code>maxmemory-policy</code> decides what happens:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Evicts</th>
+<th>Good for</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>noeviction</code> (default)</td>
+<td>nothing, writes get errors</td>
+<td>primary data store</td>
+</tr>
+<tr>
+<td><code>allkeys-lru</code></td>
+<td>least <strong>recently</strong> used key</td>
+<td><strong>general cache</strong> ⭐</td>
+</tr>
+<tr>
+<td><code>allkeys-lfu</code></td>
+<td>least <strong>frequently</strong> used key</td>
+<td>caches with stable &quot;hot&quot; keys</td>
+</tr>
+<tr>
+<td><code>volatile-lru</code> / <code>volatile-lfu</code></td>
+<td>same, but only keys with a TTL</td>
+<td>mixed cache + data</td>
+</tr>
+<tr>
+<td><code>volatile-ttl</code></td>
+<td>key closest to expiring</td>
+<td>short-lived data</td>
+</tr>
+<tr>
+<td><code>allkeys-random</code> / <code>volatile-random</code></td>
+<td>random key</td>
+<td>uniform access</td>
+</tr>
+</tbody></table></div>
+<p>Redis&#39;s LRU/LFU is <strong>approximate</strong>: it samples a few keys (<code>maxmemory-samples 5</code>) and evicts the best candidate from a small pool. Nearly as good as exact LRU, with no linked list overhead.</p>
+</article><article class="topic" id="lfu-in-a-nutshell"><h3><a class="anchor" href="#lfu-in-a-nutshell">#</a>LFU in a Nutshell</h3>
+<p>Each key has 24 bits of metadata: a <strong>last-access time</strong> and an 8-bit <strong>logarithmic counter</strong>.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  A["access key"] --&gt; P{"random below 1 ÷ (counter × lfu-log-factor + 1)?"}
+  P -- yes --&gt; I["counter++"]
+  P -- no --&gt; N["unchanged"]
+  T["time passes"] --&gt; Dc["counter decays&lt;br/&gt;(lfu-decay-time)"]</pre></figure><ul>
+<li>Counter saturates at 255, but thanks to the probability it takes ~1M hits to get there</li>
+<li>Decay means yesterday&#39;s viral key doesn&#39;t stay &quot;hot&quot; forever</li>
+<li><code>OBJECT FREQ key</code> shows the counter (with an LFU policy)</li>
+</ul>
+</article><article class="topic" id="step-6-persistence-why-bother"><h3><a class="anchor" href="#step-6-persistence-why-bother">#</a>Step 6 · Persistence: Why Bother?</h3>
+<p>RAM is <strong>volatile</strong>: power loss or restart = empty Redis. Two ways to survive that:</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  M[("🧠 memory")] -- "every N minutes&lt;br/&gt;full snapshot" --&gt; RDB["📸 RDB file&lt;br/&gt;dump.rdb"]
+  M -- "every write&lt;br/&gt;appended" --&gt; AOF["📜 AOF files&lt;br/&gt;appendonly.aof"]
+  RDB &amp; AOF -- "on restart: load" --&gt; M</pre></figure><div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>RDB snapshot</th>
+<th>AOF log</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>What&#39;s saved</td>
+<td>point-in-time copy</td>
+<td>every write command</td>
+</tr>
+<tr>
+<td>File size</td>
+<td>compact binary</td>
+<td>larger, rewritten periodically</td>
+</tr>
+<tr>
+<td>Restart speed</td>
+<td>fast</td>
+<td>slower (replay)</td>
+</tr>
+<tr>
+<td>Data loss on crash</td>
+<td>since last snapshot (minutes)</td>
+<td>~1 s (with <code>everysec</code>)</td>
+</tr>
+</tbody></table></div>
+</article><article class="topic" id="rdb-snapshots-with-fork-copy-on-write"><h3><a class="anchor" href="#rdb-snapshots-with-fork-copy-on-write">#</a>RDB: Snapshots with fork() + Copy-on-Write</h3>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant P as Parent (serves clients)
+  participant OS as OS kernel
+  participant C as Child process
+  P-&gt;&gt;OS: fork()
+  OS--&gt;&gt;C: shares ALL memory pages (no copy yet)
+  P-&gt;&gt;OS: client writes page X
+  OS-&gt;&gt;OS: copy page X for parent only (COW)
+  C-&gt;&gt;C: still sees the OLD page X → consistent snapshot
+  C--&gt;&gt;P: done, rename temp → dump.rdb</pre></figure><p>Config: <code>save 3600 1 300 100 60 10000</code> (snapshot after 1 change/1 h, 100/5 min or 10k/1 min) · manual: <code>BGSAVE</code></p>
+<p>⚠️ Write-heavy workloads can <strong>double memory</strong> during a save as pages get copied. Leave headroom.</p>
+</article><article class="topic" id="aof-log-every-write"><h3><a class="anchor" href="#aof-log-every-write">#</a>AOF: Log Every Write</h3>
+<pre><code class="language-text">appendonly yes
+appendfsync everysec     # always | everysec | no
+</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th><code>appendfsync</code></th>
+<th>Durability</th>
+<th>Speed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>always</code></td>
+<td>lose at most one write</td>
+<td>slowest</td>
+</tr>
+<tr>
+<td><code>everysec</code> ⭐</td>
+<td>lose ~1 second</td>
+<td>fast</td>
+</tr>
+<tr>
+<td><code>no</code></td>
+<td>OS decides (~30 s)</td>
+<td>fastest</td>
+</tr>
+</tbody></table></div>
+<p><strong>AOF rewrite:</strong> the log keeps growing (<code>INCR</code> × 1,000,000). A forked child writes the <strong>minimal</strong> set of commands that rebuilds current state (<code>SET counter 1000000</code>).</p>
+<p>Since Redis 7, AOF is <strong>multi-part</strong>: a base file (often RDB format) + incremental files + a manifest. Using an RDB base is the <strong>hybrid</strong> mode (<code>aof-use-rdb-preamble yes</code>).</p>
+</article><article class="topic" id="which-persistence-should-i-use"><h3><a class="anchor" href="#which-persistence-should-i-use">#</a>Which Persistence Should I Use?</h3>
+<figure class="diagram"><pre class="mermaid">flowchart TD
+  Q{"Can you lose&lt;br/&gt;all the data?"} -- "yes (pure cache)" --&gt; N["Persistence off&lt;br/&gt;save '' · appendonly no"]
+  Q -- no --&gt; Q2{"Can you lose&lt;br/&gt;a few minutes?"}
+  Q2 -- yes --&gt; R["RDB only"]
+  Q2 -- "no, ≤ 1 s" --&gt; B["AOF everysec + RDB&lt;br/&gt;(hybrid) ⭐"]</pre></figure><p>Remember: even with AOF, Redis is <strong>not</strong> a replacement for a transactional SQL database when every single write must be durable and queryable in complex ways.</p>
+</article><article class="topic" id="step-7-doing-several-things-at-once"><h3><a class="anchor" href="#step-7-doing-several-things-at-once">#</a>Step 7 · Doing Several Things at Once</h3>
+<p><strong>Pipelining:</strong> send many commands without waiting for each reply. Cuts round trips.</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant C as Client
+  participant R as Redis
+  Note over C,R: Without pipeline: 3 round trips
+  C-&gt;&gt;R: SET a 1
+  R--&gt;&gt;C: OK
+  C-&gt;&gt;R: SET b 2
+  R--&gt;&gt;C: OK
+  Note over C,R: With pipeline: 1 round trip
+  C-&gt;&gt;R: SET a 1 · SET b 2 · SET c 3
+  R--&gt;&gt;C: OK · OK · OK</pre></figure><p>If one round trip costs 1 ms, 1,000 commands take <strong>1 s</strong> unpipelined vs <strong>a few ms</strong> pipelined.</p>
+</article><article class="topic" id="transactions-multi-exec-watch"><h3><a class="anchor" href="#transactions-multi-exec-watch">#</a>Transactions: MULTI / EXEC / WATCH</h3>
+<pre><code class="language-text">MULTI                      # start queueing
+DECRBY acct:asha 500
+INCRBY acct:ravi 500
+EXEC                       # run both, back to back, nothing in between
+</code></pre>
+<ul>
+<li>Commands are queued, then executed <strong>together, in order, without interleaving</strong></li>
+<li><strong>No rollback:</strong> if one command fails at runtime, the others still apply</li>
+<li><code>WATCH</code> adds <strong>optimistic locking</strong>:</li>
+</ul>
+<pre><code class="language-text">WATCH acct:asha
+balance = GET acct:asha          # check in your app: enough money?
+MULTI
+DECRBY acct:asha 500
+EXEC                             # → nil if acct:asha changed after WATCH; retry
+</code></pre>
+</article><article class="topic" id="server-side-logic-lua-functions"><h3><a class="anchor" href="#server-side-logic-lua-functions">#</a>Server-Side Logic: Lua &amp; Functions</h3>
+<p>Run a script <strong>atomically inside Redis</strong>: read, decide and write with no round trips and no races.</p>
+<pre><code class="language-lua">-- compare-and-delete: release a lock only if we own it
+if redis.call(&quot;GET&quot;, KEYS[1]) == ARGV[1] then
+  return redis.call(&quot;DEL&quot;, KEYS[1])
+else
+  return 0
+end
+</code></pre>
+<pre><code class="language-text">EVAL &quot;&lt;script above&gt;&quot; 1 lock:order:7 &quot;token-abc&quot;
+EVALSHA &lt;sha1&gt; 1 lock:order:7 &quot;token-abc&quot;    # run a cached script by hash
+</code></pre>
+<p><strong>Redis Functions</strong> (7.0+) are the managed version: libraries loaded with <code>FUNCTION LOAD</code>, stored with the data and replicated, called with <code>FCALL</code>.</p>
+<p>⚠️ Scripts block the server while they run. Keep them short.</p>
+</article><article class="topic" id="pub-sub-fire-and-forget-messaging"><h3><a class="anchor" href="#pub-sub-fire-and-forget-messaging">#</a>Pub/Sub: Fire-and-Forget Messaging</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  P["📣 PUBLISH news 'hello'"] --&gt; CH(("channel&lt;br/&gt;news"))
+  CH --&gt; S1["👂 subscriber 1"]
+  CH --&gt; S2["👂 subscriber 2"]
+  CH -.-&gt;|"offline = misses it"| S3["💤 subscriber 3"]</pre></figure><pre><code class="language-text">SUBSCRIBE news            # listen on a channel
+PSUBSCRIBE news.*         # pattern subscription
+PUBLISH news &quot;hello&quot;      # → number of receivers
+SSUBSCRIBE / SPUBLISH     # sharded pub/sub for Cluster (7.0+)
+</code></pre>
+<ul>
+<li><strong>At-most-once:</strong> no storage, no replay. Offline subscribers miss messages</li>
+<li>Need durability or replay? Use <strong>Streams</strong> instead</li>
+</ul>
+</article><article class="topic" id="keyspace-notifications-client-side-caching"><h3><a class="anchor" href="#keyspace-notifications-client-side-caching">#</a>Keyspace Notifications &amp; Client-Side Caching</h3>
+<p><strong>Keyspace notifications</strong> publish events when keys change or expire:</p>
+<pre><code class="language-text">CONFIG SET notify-keyspace-events Ex        # E = keyevent, x = expired
+SUBSCRIBE __keyevent@0__:expired            # &quot;session:abc expired!&quot;
+</code></pre>
+<p><strong>Client-side caching (tracking)</strong> lets a client keep a local copy and get told when it goes stale:</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant App as App (local cache)
+  participant R as Redis
+  App-&gt;&gt;R: CLIENT TRACKING ON
+  App-&gt;&gt;R: GET user:42
+  R--&gt;&gt;App: "Asha" (App caches it locally)
+  Note over R: another client: SET user:42 "Asha K"
+  R--&gt;&gt;App: invalidate user:42
+  App-&gt;&gt;App: drop local copy</pre></figure></article><article class="topic recap" id="recap-of-part-3"><h3><a class="anchor" href="#recap-of-part-3">#</a>Recap of Part 3 ✅</h3>
+<ul>
+<li>Clients speak <strong>RESP</strong> over TCP</li>
+<li><strong>One main thread</strong> + event loop → no locks, atomic commands; slow commands block all</li>
+<li>Keyspace is a <strong>hash table</strong> with incremental rehashing</li>
+<li>Types auto-switch between <strong>compact</strong> (listpack/intset) and <strong>fast</strong> (hashtable/skiplist) encodings</li>
+<li>Expiry = <strong>lazy + active sampling</strong>; memory limits → <strong>eviction policies</strong> (LRU/LFU)</li>
+<li>Persistence = <strong>RDB</strong> (fork + COW snapshot) and/or <strong>AOF</strong> (write log, <code>everysec</code>)</li>
+<li>Pipelines, transactions, Lua/Functions, Pub/Sub, tracking</li>
+</ul>
+</article></section><section class="part" id="part-4-redis-as-a-cache"><header class="part-head"><span class="part-num">Part 4 <span aria-hidden="true">🟡</span></span><h2>Redis as a Cache</h2><p>The #1 reason people meet Redis</p></header><article class="topic" id="what-is-a-cache"><h3><a class="anchor" href="#what-is-a-cache">#</a>What Is a Cache?</h3>
+<p>A <strong>cache</strong> is a small, fast store that keeps copies of data that is <strong>expensive</strong> to get.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  U["👤 User"] --&gt; A["🖥️ App"]
+  A -- "1 · check (≈0.3 ms)" --&gt; R[("⚡ Redis")]
+  A -- "2 · on miss (≈30 ms+)" --&gt; DB[("🐢 Database / API")]</pre></figure><p>Like keeping your most-used books <strong>on your desk</strong> instead of walking to the library each time.</p>
+<ul>
+<li><strong>Hit</strong> = found in the cache 🎉 · <strong>Miss</strong> = not found, fetch from the source</li>
+<li><strong>Hit ratio</strong> = hits ÷ (hits + misses). Aim high (often 90%+)</li>
+</ul>
+</article><article class="topic" id="why-caching-pays-off"><h3><a class="anchor" href="#why-caching-pays-off">#</a>Why Caching Pays Off</h3>
+<p>Suppose the DB takes <strong>50 ms</strong>, Redis takes <strong>0.5 ms</strong>, and the hit ratio is <strong>95%</strong>:</p>
+<div class="formula">avg latency = 0.95 × 0.5 ms + 0.05 × (0.5 + 50) ms ≈ <b>3 ms</b></div>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:18px;text-align:center">
+<div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--green)"><b>~16×</b></div>faster on average</div>
+<div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--peach)"><b>20×</b></div>fewer DB queries</div>
+<div style="background:var(--surface0);border-radius:14px;padding:16px"><div style="font-size:2em;color:var(--blue)"><b>💸</b></div>smaller DB bill, spikes absorbed</div>
+</div>
+
+<p>What to cache: DB query results, rendered pages, API responses, computed recommendations, auth tokens, ML model outputs.</p>
+</article><article class="topic" id="pattern-1-cache-aside-lazy-loading"><h3><a class="anchor" href="#pattern-1-cache-aside-lazy-loading">#</a>Pattern 1 · Cache-Aside (Lazy Loading) ⭐</h3>
+<p>The app owns the logic. <strong>Most common pattern.</strong></p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant App
+  participant Redis
+  participant DB
+  App-&gt;&gt;Redis: GET product:7
+  alt cache hit
+    Redis--&gt;&gt;App: data ✅
+  else cache miss
+    Redis--&gt;&gt;App: nil
+    App-&gt;&gt;DB: SELECT … WHERE id = 7
+    DB--&gt;&gt;App: row
+    App-&gt;&gt;Redis: SET product:7 row EX 600
+  end</pre></figure><p>✅ caches only what&#39;s requested · ✅ survives Redis outage · ⚠️ first hit misses · ⚠️ stale until TTL</p>
+</article><article class="topic" id="cache-aside-keeping-it-fresh-on-writes"><h3><a class="anchor" href="#cache-aside-keeping-it-fresh-on-writes">#</a>Cache-Aside: Keeping It Fresh on Writes</h3>
+<p>When data changes, <strong>update the DB first, then delete the cache key</strong>.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  W["✏️ update product 7"] --&gt; D1["1 · UPDATE in DB"] --&gt; D2["2 · DEL product:7"]
+  D2 --&gt; N["next read misses&lt;br/&gt;→ reloads fresh data"]</pre></figure><p>Why <strong>delete</strong> instead of <strong>set</strong> the new value?</p>
+<ul>
+<li>Two concurrent writers could SET in the wrong order → stale forever</li>
+<li>Deleting is idempotent and simple; the next reader loads the truth</li>
+</ul>
+<p>Still a tiny race window exists, so <strong>always keep a TTL</strong> as a safety net.</p>
+</article><article class="topic" id="patterns-2-4-at-a-glance"><h3><a class="anchor" href="#patterns-2-4-at-a-glance">#</a>Patterns 2–4 at a Glance</h3>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  subgraph RT["Read-through"]
+    a1["App"] --&gt; c1["Cache layer"] -- "miss: cache loads itself" --&gt; d1[("DB")]
+  end
+  subgraph WT["Write-through"]
+    a2["App"] --&gt; c2["Cache layer"] -- "write synchronously" --&gt; d2[("DB")]
+  end
+  subgraph WB["Write-behind (write-back)"]
+    a3["App"] --&gt; c3["Redis"] -. "async batch later" .-&gt; d3[("DB")]
+  end</pre></figure><div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Pros</th>
+<th>Cons</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Read-through</td>
+<td>app code stays simple</td>
+<td>needs a library/proxy that knows the DB</td>
+</tr>
+<tr>
+<td>Write-through</td>
+<td>cache always fresh</td>
+<td>every write pays two writes</td>
+</tr>
+<tr>
+<td>Write-behind</td>
+<td>very fast writes, batched</td>
+<td>data loss risk if Redis dies before flush</td>
+</tr>
+</tbody></table></div>
+</article><article class="topic" id="choosing-ttls"><h3><a class="anchor" href="#choosing-ttls">#</a>Choosing TTLs</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Example TTL</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Stock price / live score</td>
+<td>1–5 s</td>
+<td>changes constantly</td>
+</tr>
+<tr>
+<td>Product page</td>
+<td>5–15 min</td>
+<td>changes rarely, cheap to refresh</td>
+</tr>
+<tr>
+<td>User profile</td>
+<td>1 h + delete on update</td>
+<td>explicit invalidation</td>
+</tr>
+<tr>
+<td>Country list</td>
+<td>24 h</td>
+<td>almost static</td>
+</tr>
+<tr>
+<td>OTP / password reset token</td>
+<td>5–15 min</td>
+<td>security</td>
+</tr>
+</tbody></table></div>
+<p><strong>Add jitter</strong> so keys created together don&#39;t expire together:</p>
+<pre><code class="language-python">ttl = 600 + random.randint(0, 60)   # 10–11 minutes
+</code></pre>
+</article><article class="topic" id="problem-1-cache-stampede-thundering-herd"><h3><a class="anchor" href="#problem-1-cache-stampede-thundering-herd">#</a>Problem 1 · Cache Stampede (Thundering Herd)</h3>
+<p>A <strong>hot key</strong> expires → thousands of requests miss at once → all hit the DB 💥</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph T["t = expiry"]
+    R1["req"] &amp; R2["req"] &amp; R3["req"] &amp; R4["req …×5000"] --&gt; M["MISS"]
+  end
+  M --&gt; DB[("🔥 DB overloaded")]</pre></figure><p><strong>Fixes</strong></p>
+<ul>
+<li><strong>Mutex / single-flight:</strong> only one request rebuilds (<code>SET lock:key token NX PX 5000</code>); others wait briefly or serve stale</li>
+<li><strong>Early (probabilistic) refresh:</strong> refresh a key <em>before</em> it expires, with probability rising near the end</li>
+<li><strong>Stale-while-revalidate:</strong> keep serving the old value while a background job refreshes it</li>
+</ul>
+</article><article class="topic" id="problem-2-cache-penetration"><h3><a class="anchor" href="#problem-2-cache-penetration">#</a>Problem 2 · Cache Penetration</h3>
+<p>Requests for keys that <strong>don&#39;t exist anywhere</strong> (e.g. <code>product:-1</code>, bots) always miss and always hit the DB.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  B["🤖 GET product:999999"] --&gt; R{"Redis"} -- miss --&gt; DB[("DB: not found")]
+  DB -. "nothing cached" .-&gt; R</pre></figure><p><strong>Fixes</strong></p>
+<ul>
+<li><strong>Cache the &quot;not found&quot;</strong> too, with a short TTL: <code>SET product:999999 &quot;__null__&quot; EX 60</code></li>
+<li><strong>Bloom filter</strong> in front: &quot;definitely not present&quot; answers skip the DB entirely</li>
+</ul>
+<pre><code class="language-text">BF.ADD    products:bf 7            # Redis 8 / RedisBloom
+BF.EXISTS products:bf 999999       # 0 → reject immediately
+</code></pre>
+</article><article class="topic" id="problem-3-cache-avalanche"><h3><a class="anchor" href="#problem-3-cache-avalanche">#</a>Problem 3 · Cache Avalanche</h3>
+<p><strong>Many keys expire at the same moment</strong>, or the <strong>cache server goes down</strong>. The DB takes the full load.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  E["⏰ 10:00:00&lt;br/&gt;100k keys expire"] --&gt; DB[("💥 DB")]
+  X["❌ Redis node crash"] --&gt; DB</pre></figure><p><strong>Fixes</strong></p>
+<ul>
+<li><strong>TTL jitter</strong> (random spread)</li>
+<li><strong>High availability</strong>: replicas + Sentinel or Cluster (Part 7)</li>
+<li><strong>Circuit breakers / rate limits</strong> in front of the DB</li>
+<li><strong>Warm the cache</strong> before sending traffic to a new instance</li>
+<li>A small <strong>in-process cache</strong> (L1) in front of Redis (L2)</li>
+</ul>
+</article><article class="topic" id="problem-4-big-keys-hot-keys"><h3><a class="anchor" href="#problem-4-big-keys-hot-keys">#</a>Problem 4 · Big Keys &amp; Hot Keys</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+<div style="background:var(--surface0);border-top:5px solid var(--peach);border-radius:12px;padding:14px 20px"><b>🐘 Big key</b><br>A 50 MB string or a hash with 5M fields.<br><br>• slow to read, delete, replicate<br>• blocks the event loop<br><br><b>Fix:</b> split into chunks/buckets, use <code>UNLINK</code>, <code>HSCAN</code>, find them with <code>redis-cli --bigkeys</code></div>
+<div style="background:var(--surface0);border-top:5px solid var(--red);border-radius:12px;padding:14px 20px"><b>🔥 Hot key</b><br>One key getting a huge share of traffic (a celebrity's profile).<br><br>• one node / one CPU saturates<br><br><b>Fix:</b> local in-process cache, replicate as <code>key:{1..N}</code> copies and pick randomly, read from replicas, find with <code>redis-cli --hotkeys</code> (LFU)</div>
+</div></article><article class="topic" id="multi-level-caching"><h3><a class="anchor" href="#multi-level-caching">#</a>Multi-Level Caching</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  Req["request"] --&gt; L1["L1 · in-process&lt;br/&gt;(LRU dict, ~µs)&lt;br/&gt;per server"]
+  L1 -- miss --&gt; L2["L2 · Redis&lt;br/&gt;(~0.5 ms)&lt;br/&gt;shared"]
+  L2 -- miss --&gt; SRC[("source of truth&lt;br/&gt;DB / API")]
+  SRC --&gt; L2 --&gt; L1</pre></figure><ul>
+<li>L1 absorbs hot keys, L2 is shared by all servers, the DB stays protected</li>
+<li>Use <strong>client-side caching (tracking)</strong> to invalidate L1 when L2 changes</li>
+<li>Keep L1 TTLs <strong>short</strong> to limit staleness between servers</li>
+</ul>
+</article><article class="topic" id="redis-vs-memcached-for-caching"><h3><a class="anchor" href="#redis-vs-memcached-for-caching">#</a>Redis vs Memcached for Caching</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Redis</th>
+<th>Memcached</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Values</td>
+<td>many data structures</td>
+<td>strings only</td>
+</tr>
+<tr>
+<td>Threads</td>
+<td>1 main + I/O threads</td>
+<td>multi-threaded</td>
+</tr>
+<tr>
+<td>Persistence</td>
+<td>RDB / AOF</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Replication / HA</td>
+<td>built in</td>
+<td>none (client-side)</td>
+</tr>
+<tr>
+<td>Eviction</td>
+<td>8 policies, LRU &amp; LFU</td>
+<td>LRU (segmented)</td>
+</tr>
+<tr>
+<td>Max value</td>
+<td>512 MB</td>
+<td>1 MB default</td>
+</tr>
+<tr>
+<td>Scripting, pub/sub, streams</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+</tbody></table></div>
+<p><strong>Rule of thumb:</strong> Memcached for a pure, simple, massive string cache; Redis for everything else (which is most cases).</p>
+</article><article class="topic recap" id="recap-of-part-4"><h3><a class="anchor" href="#recap-of-part-4">#</a>Recap of Part 4 ✅</h3>
+<ul>
+<li><strong>Cache-aside</strong> is the default: read cache → miss → read DB → fill cache with TTL</li>
+<li>On writes: <strong>update DB, then delete the cache key</strong></li>
+<li>Always use <strong>TTLs</strong>, add <strong>jitter</strong></li>
+<li>Guard against <strong>stampede</strong> (locks, early refresh), <strong>penetration</strong> (null caching, Bloom), <strong>avalanche</strong> (jitter, HA)</li>
+<li>Watch out for <strong>big keys</strong> and <strong>hot keys</strong></li>
+<li>Pick <code>allkeys-lru</code> or <code>allkeys-lfu</code> for a pure cache</li>
+</ul>
+</article></section><section class="part" id="part-5-real-world-use-cases"><header class="part-head"><span class="part-num">Part 5 <span aria-hidden="true">🟠</span></span><h2>Real-World Use Cases</h2><p>How the data types become features</p></header><article class="topic" id="use-case-1-session-store"><h3><a class="anchor" href="#use-case-1-session-store">#</a>Use Case 1 · Session Store</h3>
+<p>Web servers are stateless; login state lives in Redis so <strong>any server</strong> can handle <strong>any request</strong>.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  B["🌐 Browser&lt;br/&gt;cookie: sid=8f3a"] --&gt; LB["⚖️ Load balancer"]
+  LB --&gt; S1["server 1"] &amp; S2["server 2"] &amp; S3["server 3"]
+  S1 &amp; S2 &amp; S3 --&gt; R[("Redis&lt;br/&gt;session:8f3a")]</pre></figure><pre><code class="language-text">HSET   session:8f3a user_id 42 role admin cart_items 3
+EXPIRE session:8f3a 1800            # 30-minute idle timeout
+HGETALL session:8f3a                # on every request
+EXPIRE session:8f3a 1800            # slide the window on activity
+DEL    session:8f3a                 # logout
+</code></pre>
+</article><article class="topic" id="use-case-2-rate-limiting-fixed-window"><h3><a class="anchor" href="#use-case-2-rate-limiting-fixed-window">#</a>Use Case 2 · Rate Limiting (Fixed Window)</h3>
+<p>&quot;Max <strong>100 requests per minute</strong> per user.&quot;</p>
+<pre><code class="language-text">key = rate:{user}:{current_minute}
+INCR   rate:42:202609171030          → 1, 2, 3, …
+EXPIRE rate:42:202609171030 60 NX    # set TTL only on first hit (7.0+)
+if count &gt; 100 → reject with HTTP 429
+</code></pre>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph m1["10:30 window"]
+    a["▮▮▮▮▮▮▮▮ 100 ✅"]
+  end
+  subgraph m2["10:31 window"]
+    b["▮▮ counter resets"]
+  end
+  m1 --&gt; m2</pre></figure><p>⚠️ <strong>Boundary burst:</strong> 100 requests at 10:30:59 + 100 at 10:31:00 = 200 in two seconds.</p>
+</article><article class="topic" id="rate-limiting-sliding-window-log"><h3><a class="anchor" href="#rate-limiting-sliding-window-log">#</a>Rate Limiting · Sliding Window Log</h3>
+<p>Use a <strong>sorted set</strong> with the timestamp as the score.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  N["now = 10:31:20"] --&gt; W["window = last 60 s&lt;br/&gt;10:30:20 → 10:31:20"]
+  W --&gt; Z["ZREMRANGEBYSCORE: drop older"]
+  Z --&gt; C["ZCARD: count what's left"]
+  C --&gt; D{"under the limit?"}
+  D -- yes --&gt; A["ZADD now ✅"]
+  D -- no --&gt; R["429 ❌"]</pre></figure><pre><code class="language-text">MULTI
+ZREMRANGEBYSCORE rl:42 0 (now_ms - 60000)
+ZADD   rl:42 now_ms &lt;unique-request-id&gt;
+ZCARD  rl:42
+PEXPIRE rl:42 60000
+EXEC
+</code></pre>
+<p>Exact and smooth, at the cost of one entry per request. <strong>Token bucket</strong> in a Lua script is the memory-light alternative.</p>
+</article><article class="topic" id="use-case-3-leaderboards"><h3><a class="anchor" href="#use-case-3-leaderboards">#</a>Use Case 3 · Leaderboards</h3>
+<pre><code class="language-text">ZINCRBY lb:weekly 30 &quot;priya&quot;                 # points earned
+ZREVRANGE lb:weekly 0 9 WITHSCORES           # top 10
+ZREVRANK  lb:weekly &quot;kabir&quot;                  # kabir&#39;s position (0-based)
+ZSCORE    lb:weekly &quot;kabir&quot;
+ZREVRANGE lb:weekly (rank-2) (rank+2)        # players around kabir
+ZUNIONSTORE lb:month 4 lb:w1 lb:w2 lb:w3 lb:w4   # combine weeks
+</code></pre>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;max-width:70%">
+<div style="background:linear-gradient(90deg,var(--yellow) 98%,transparent 0);color:var(--crust);border-radius:6px;padding:6px 12px"><b>🥇 priya · 9820</b></div>
+<div style="background:linear-gradient(90deg,var(--overlay1) 94%,transparent 0);color:var(--crust);border-radius:6px;padding:6px 12px"><b>🥈 arjun · 9410</b></div>
+<div style="background:linear-gradient(90deg,var(--peach) 89%,transparent 0);color:var(--crust);border-radius:6px;padding:6px 12px"><b>🥉 meera · 8875</b></div>
+<div style="background:linear-gradient(90deg,var(--surface1) 70%,transparent 0);border-radius:6px;padding:6px 12px">kabir · 7002</div>
+</div>
+
+<p>Millions of players, every operation <strong>O(log N)</strong>. A SQL <code>ORDER BY … LIMIT</code> on every page view can&#39;t compete.</p>
+</article><article class="topic" id="use-case-4-distributed-lock"><h3><a class="anchor" href="#use-case-4-distributed-lock">#</a>Use Case 4 · Distributed Lock</h3>
+<p>Make sure <strong>only one worker</strong> runs a job at a time, across machines.</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant W1 as Worker 1
+  participant R as Redis
+  participant W2 as Worker 2
+  W1-&gt;&gt;R: SET lock:report tokenA NX PX 30000
+  R--&gt;&gt;W1: OK (acquired)
+  W2-&gt;&gt;R: SET lock:report tokenB NX PX 30000
+  R--&gt;&gt;W2: nil (busy, retry later)
+  W1-&gt;&gt;W1: do the job
+  W1-&gt;&gt;R: Lua: if GET == tokenA then DEL</pre></figure><ul>
+<li><code>NX</code> = only if not exists · <code>PX</code> = auto-release if the worker crashes</li>
+<li>Unique <strong>token</strong> prevents deleting someone else&#39;s lock</li>
+<li>⚠️ A lock can expire mid-job: for critical work add <strong>fencing tokens</strong> or use etcd/ZooKeeper</li>
+</ul>
+</article><article class="topic" id="use-case-5-job-queues"><h3><a class="anchor" href="#use-case-5-job-queues">#</a>Use Case 5 · Job Queues</h3>
+<p><strong>Simple queue with lists:</strong></p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  P["producer"] -- LPUSH --&gt; Q[["jobs list"]]
+  Q -- "BLMOVE (atomic)" --&gt; PR[["processing list"]]
+  PR --&gt; W["worker"]
+  W -- "done: LREM" --&gt; PR</pre></figure><pre><code class="language-text">LPUSH  jobs &#39;{&quot;type&quot;:&quot;email&quot;,&quot;to&quot;:&quot;asha@example.com&quot;}&#39;
+BLMOVE jobs processing RIGHT LEFT 0     # pop + back it up, atomically
+LREM   processing 1 &#39;&lt;job&gt;&#39;             # remove when finished
+</code></pre>
+<p>A crashed worker&#39;s job stays in <code>processing</code> and can be retried.</p>
+<p><strong>Reliable queue with Streams:</strong> consumer groups, <code>XACK</code>, <code>XPENDING</code> to see stuck jobs, <code>XAUTOCLAIM</code> to hand them to another worker. Libraries like <strong>Celery</strong>, <strong>RQ</strong>, <strong>BullMQ</strong> and <strong>Sidekiq</strong> use Redis this way.</p>
+</article><article class="topic" id="use-case-6-real-time-chat-notifications"><h3><a class="anchor" href="#use-case-6-real-time-chat-notifications">#</a>Use Case 6 · Real-Time Chat &amp; Notifications</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  U1["👩 Asha"] -- websocket --&gt; WS1["WS server 1"]
+  U2["👨 Ravi"] -- websocket --&gt; WS2["WS server 2"]
+  WS1 -- "PUBLISH room:7 'hi'" --&gt; R(("Redis&lt;br/&gt;Pub/Sub"))
+  R -- message --&gt; WS2 -- push --&gt; U2
+  WS1 -- "XADD history:room:7" --&gt; H[("Stream&lt;br/&gt;chat history")]</pre></figure><ul>
+<li>Pub/Sub fans out live messages between servers</li>
+<li>A Stream (or a capped List) stores history for people who reconnect</li>
+<li>A Set tracks who is online in each room: <code>SADD online:room:7 asha</code></li>
+</ul>
+</article><article class="topic" id="use-case-7-analytics-counting"><h3><a class="anchor" href="#use-case-7-analytics-counting">#</a>Use Case 7 · Analytics &amp; Counting</h3>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>📊 Page views</b><br><code>INCR views:post:9</code><br><code>HINCRBY views:2026-09-17 post:9 1</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>👥 Unique visitors</b><br><code>PFADD uv:post:9 user42</code><br><code>PFCOUNT uv:post:9</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>📅 Daily active users</b><br><code>SETBIT dau:0917 42 1</code><br><code>BITCOUNT dau:0917</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>🔥 Trending</b><br><code>ZINCRBY trending:hour tag 1</code><br><code>ZREVRANGE … 0 9</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>⏱️ Time series</b><br><code>TS.ADD temp:room1 * 24.5</code><br><code>TS.RANGE … AGGREGATION avg 60000</code></div>
+<div style="background:var(--surface0);border-radius:12px;padding:14px 18px"><b>🔝 Top-K / counts</b><br><code>TOPK.ADD</code>, <code>CMS.INCRBY</code><br>(probabilistic, tiny memory)</div>
+</div>
+
+<p>Counters are updated in real time; a batch job can flush them to a warehouse later.</p>
+</article><article class="topic" id="use-case-8-nearby-search"><h3><a class="anchor" href="#use-case-8-nearby-search">#</a>Use Case 8 · Nearby Search</h3>
+<pre><code class="language-python"># driver app sends a location every few seconds
+r.geoadd(&quot;drivers:mumbai&quot;, (72.8777, 19.0760, &quot;driver:17&quot;))
+
+# rider asks for the 5 closest drivers within 3 km
+r.geosearch(&quot;drivers:mumbai&quot;,
+            longitude=72.87, latitude=19.07,
+            radius=3, unit=&quot;km&quot;, sort=&quot;ASC&quot;, count=5, withdist=True)
+</code></pre>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  G["📍 lon/lat"] --&gt; H["52-bit geohash&lt;br/&gt;(interleaved bits)"] --&gt; Z["sorted-set score"] --&gt; Q["range queries on&lt;br/&gt;neighbouring cells"]</pre></figure><p>Nearby places share geohash <strong>prefixes</strong>, so a radius query becomes a few sorted-set range scans.</p>
+</article><article class="topic" id="use-case-9-ai-apps-semantic-cache-rag"><h3><a class="anchor" href="#use-case-9-ai-apps-semantic-cache-rag">#</a>Use Case 9 · AI Apps: Semantic Cache &amp; RAG</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  Q["❓ user question"] --&gt; E["embed → vector"]
+  E --&gt; V{"Redis vector search:&lt;br/&gt;similar question seen?"}
+  V -- "yes (similarity &gt; 0.9)" --&gt; A["return cached LLM answer 💸 saved"]
+  V -- no --&gt; L["call LLM"] --&gt; S["store vector + answer"] --&gt; A2["answer"]</pre></figure><ul>
+<li><strong>Semantic cache:</strong> &quot;What&#39;s your refund policy?&quot; ≈ &quot;How do refunds work?&quot; → same cached answer</li>
+<li><strong>RAG:</strong> store document chunks as vectors, fetch the top-k most relevant ones for the prompt</li>
+<li><strong>Agent memory:</strong> conversation history in Hashes/Streams/JSON with TTLs</li>
+</ul>
+</article><article class="topic" id="other-everyday-uses"><h3><a class="anchor" href="#other-everyday-uses">#</a>Other Everyday Uses</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Redis building block</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Feature flags / config</td>
+<td>Hash <code>flags</code> + Pub/Sub to broadcast changes</td>
+</tr>
+<tr>
+<td>Shopping cart</td>
+<td>Hash <code>cart:{user}</code> field = product, value = qty</td>
+</tr>
+<tr>
+<td>&quot;Recently viewed&quot;</td>
+<td>List <code>LPUSH</code> + <code>LTRIM 0 19</code></td>
+</tr>
+<tr>
+<td>Deduplication (idempotency)</td>
+<td><code>SET idem:{request-id} 1 NX EX 86400</code></td>
+</tr>
+<tr>
+<td>Unique usernames</td>
+<td>Set or <code>SET username:asha 42 NX</code></td>
+</tr>
+<tr>
+<td>Delayed jobs / scheduler</td>
+<td>Sorted set, score = run-at time; poll <code>ZRANGEBYSCORE 0 now</code></td>
+</tr>
+<tr>
+<td>Social feed (fan-out)</td>
+<td>List/Sorted set per follower timeline</td>
+</tr>
+<tr>
+<td>OTP / magic links</td>
+<td>String with <code>EX 300</code></td>
+</tr>
+</tbody></table></div>
+</article><article class="topic recap" id="recap-of-part-5"><h3><a class="anchor" href="#recap-of-part-5">#</a>Recap of Part 5 ✅</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  S["String"] --&gt; u1["cache · counters · locks · OTP"]
+  H["Hash"] --&gt; u2["sessions · carts · objects"]
+  L["List"] --&gt; u3["simple queues · recent items"]
+  Z["Sorted Set"] --&gt; u4["leaderboards · rate limits · schedulers"]
+  X["Stream"] --&gt; u5["reliable queues · event logs"]
+  P["Pub/Sub"] --&gt; u6["chat · live notifications"]
+  B["HLL / Bitmap"] --&gt; u7["analytics"]
+  G["Geo / Vector"] --&gt; u8["nearby · AI search"]</pre></figure></article></section><section class="part" id="part-6-redis-in-python-c"><header class="part-head"><span class="part-num">Part 6 <span aria-hidden="true">🟠</span></span><h2>Redis in Python & C++</h2><p>From "hello" to production-style patterns</p></header><article class="topic" id="client-libraries-map"><h3><a class="anchor" href="#client-libraries-map">#</a>Client Libraries Map</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph PY["🐍 Python"]
+    p1["redis-py&lt;br/&gt;(official, sync + asyncio)"]
+    p2["redis-om-python&lt;br/&gt;(object mapping)"]
+  end
+  subgraph CPP["⚙️ C / C++"]
+    c1["hiredis&lt;br/&gt;(official, minimal C)"]
+    c2["redis-plus-plus&lt;br/&gt;(modern C++17 on hiredis)"]
+  end
+  PY &amp; CPP --&gt; R[("Redis :6379")]</pre></figure><pre><code class="language-bash">pip install &quot;redis[hiredis]&quot;          # hiredis = faster reply parser
+
+# C++ (Ubuntu); or vcpkg install redis-plus-plus
+sudo apt install libhiredis-dev
+git clone https://github.com/sewenew/redis-plus-plus &amp;&amp; cd redis-plus-plus
+mkdir build &amp;&amp; cd build &amp;&amp; cmake .. &amp;&amp; make &amp;&amp; sudo make install
+</code></pre>
+</article><article class="topic" id="python-hello-redis"><h3><a class="anchor" href="#python-hello-redis">#</a>Python · Hello Redis</h3>
+<pre><code class="language-python">import redis
+
+# decode_responses=True → get str instead of bytes
+r = redis.Redis(host=&quot;localhost&quot;, port=6379, db=0, decode_responses=True)
+
+print(r.ping())                         # True
+
+r.set(&quot;greeting&quot;, &quot;hello world&quot;)
+print(r.get(&quot;greeting&quot;))                # hello world
+
+r.set(&quot;otp:9876&quot;, &quot;482913&quot;, ex=300)     # expires in 5 minutes
+print(r.ttl(&quot;otp:9876&quot;))                # 300
+
+print(r.incr(&quot;page:home:views&quot;))        # 1
+print(r.get(&quot;missing&quot;))                 # None
+</code></pre>
+<p>A <code>Redis</code> object holds a <strong>connection pool</strong> internally. Create it once and share it across your app.</p>
+</article><article class="topic" id="python-working-with-data-types"><h3><a class="anchor" href="#python-working-with-data-types">#</a>Python · Working With Data Types</h3>
+<pre><code class="language-python"># Hash → a user object
+r.hset(&quot;user:42&quot;, mapping={&quot;name&quot;: &quot;Asha&quot;, &quot;city&quot;: &quot;Pune&quot;, &quot;logins&quot;: 0})
+r.hincrby(&quot;user:42&quot;, &quot;logins&quot;, 1)
+print(r.hgetall(&quot;user:42&quot;))   # {&#39;name&#39;: &#39;Asha&#39;, &#39;city&#39;: &#39;Pune&#39;, &#39;logins&#39;: &#39;1&#39;}
+
+# List → a queue
+r.rpush(&quot;jobs&quot;, &quot;email:1&quot;, &quot;email:2&quot;)
+print(r.lpop(&quot;jobs&quot;))         # email:1
+
+# Set → tags
+r.sadd(&quot;post:1:tags&quot;, &quot;redis&quot;, &quot;cache&quot;, &quot;redis&quot;)
+print(r.smembers(&quot;post:1:tags&quot;))   # {&#39;redis&#39;, &#39;cache&#39;}
+
+# Sorted set → leaderboard
+r.zadd(&quot;lb&quot;, {&quot;priya&quot;: 9820, &quot;arjun&quot;: 9410, &quot;meera&quot;: 8875})
+r.zincrby(&quot;lb&quot;, 600, &quot;meera&quot;)
+print(r.zrevrange(&quot;lb&quot;, 0, 2, withscores=True))
+# [(&#39;priya&#39;, 9820.0), (&#39;meera&#39;, 9475.0), (&#39;arjun&#39;, 9410.0)]
+</code></pre>
+<p>Note: Redis stores everything as strings, so numbers come back as <code>str</code> (<code>&#39;1&#39;</code>).</p>
+</article><article class="topic" id="python-cache-aside-decorator"><h3><a class="anchor" href="#python-cache-aside-decorator">#</a>Python · Cache-Aside Decorator</h3>
+<pre><code class="language-python">import json, random, functools
+
+def cached(prefix: str, ttl: int = 600):
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args):
+            key = f&quot;{prefix}:{&#39;:&#39;.join(map(str, args))}&quot;
+            hit = r.get(key)
+            if hit is not None:
+                return json.loads(hit)                 # ✅ cache hit
+            value = fn(*args)                          # ❌ miss → slow path
+            r.set(key, json.dumps(value), ex=ttl + random.randint(0, 60))
+            return value
+        return wrapper
+    return decorator
+
+@cached(&quot;product&quot;, ttl=600)
+def get_product(product_id: int) -&gt; dict:
+    return db.query_one(&quot;SELECT * FROM products WHERE id=%s&quot;, product_id)
+
+def update_product(product_id: int, fields: dict):
+    db.update(&quot;products&quot;, product_id, fields)          # 1 · write the truth
+    r.delete(f&quot;product:{product_id}&quot;)                  # 2 · invalidate
+</code></pre>
+</article><article class="topic" id="python-pipelines-transactions"><h3><a class="anchor" href="#python-pipelines-transactions">#</a>Python · Pipelines &amp; Transactions</h3>
+<pre><code class="language-python"># Pipeline: 1,000 commands in ONE round trip
+with r.pipeline(transaction=False) as pipe:
+    for i in range(1000):
+        pipe.set(f&quot;item:{i}&quot;, i)
+    results = pipe.execute()          # list of 1000 True values
+
+# Transaction with optimistic locking (WATCH)
+def transfer(src: str, dst: str, amount: int):
+    with r.pipeline() as pipe:
+        while True:
+            try:
+                pipe.watch(src)                     # watch the balance
+                balance = int(pipe.get(src) or 0)
+                if balance &lt; amount:
+                    raise ValueError(&quot;insufficient funds&quot;)
+                pipe.multi()                        # start queueing
+                pipe.decrby(src, amount)
+                pipe.incrby(dst, amount)
+                pipe.execute()                      # EXEC
+                return
+            except redis.WatchError:
+                continue                            # someone changed src → retry
+</code></pre>
+</article><article class="topic" id="python-rate-limiter-lock-with-lua"><h3><a class="anchor" href="#python-rate-limiter-lock-with-lua">#</a>Python · Rate Limiter &amp; Lock with Lua</h3>
+<pre><code class="language-python">SLIDING_WINDOW = r.register_script(&quot;&quot;&quot;
+local key, now, window, limit = KEYS[1], tonumber(ARGV[1]), tonumber(ARGV[2]), tonumber(ARGV[3])
+redis.call(&#39;ZREMRANGEBYSCORE&#39;, key, 0, now - window)
+if redis.call(&#39;ZCARD&#39;, key) &gt;= limit then return 0 end
+redis.call(&#39;ZADD&#39;, key, now, ARGV[4])
+redis.call(&#39;PEXPIRE&#39;, key, window)
+return 1
+&quot;&quot;&quot;)
+
+import time, uuid
+def allow(user_id: str, limit=100, window_ms=60_000) -&gt; bool:
+    now = int(time.time() * 1000)
+    return SLIDING_WINDOW(keys=[f&quot;rl:{user_id}&quot;],
+                          args=[now, window_ms, limit, str(uuid.uuid4())]) == 1
+
+# Built-in distributed lock helper (SET NX PX + safe release)
+with r.lock(&quot;lock:nightly-report&quot;, timeout=30, blocking_timeout=5):
+    build_report()
+</code></pre>
+</article><article class="topic" id="python-streams-worker"><h3><a class="anchor" href="#python-streams-worker">#</a>Python · Streams Worker</h3>
+<pre><code class="language-python">STREAM, GROUP = &quot;orders&quot;, &quot;billing&quot;
+try:
+    r.xgroup_create(STREAM, GROUP, id=&quot;0&quot;, mkstream=True)
+except redis.ResponseError:
+    pass                                     # group already exists
+
+# producer
+r.xadd(STREAM, {&quot;order_id&quot;: &quot;1001&quot;, &quot;amount&quot;: &quot;499&quot;})
+
+# worker (run several copies with different names)
+def run_worker(name: str):
+    while True:
+        resp = r.xreadgroup(GROUP, name, {STREAM: &quot;&gt;&quot;}, count=10, block=5000)
+        for _stream, entries in resp or []:
+            for entry_id, fields in entries:
+                charge(fields[&quot;order_id&quot;], int(fields[&quot;amount&quot;]))
+                r.xack(STREAM, GROUP, entry_id)       # ✅ done
+</code></pre>
+<p>Unacknowledged entries stay in the <strong>pending list</strong> → recover them with <code>xautoclaim</code>.</p>
+</article><article class="topic" id="python-pub-sub-and-asyncio"><h3><a class="anchor" href="#python-pub-sub-and-asyncio">#</a>Python · Pub/Sub and asyncio</h3>
+<pre><code class="language-python"># subscriber.py
+p = r.pubsub()
+p.subscribe(&quot;news&quot;)
+for msg in p.listen():
+    if msg[&quot;type&quot;] == &quot;message&quot;:
+        print(&quot;got:&quot;, msg[&quot;data&quot;])
+
+# publisher.py
+r.publish(&quot;news&quot;, &quot;Redis 101 guide is live!&quot;)
+</code></pre>
+<pre><code class="language-python">import asyncio
+import redis.asyncio as aredis
+
+async def main():
+    ar = aredis.Redis(decode_responses=True)
+    await ar.set(&quot;async:key&quot;, &quot;value&quot;, ex=60)
+    print(await ar.get(&quot;async:key&quot;))
+    await ar.aclose()
+
+asyncio.run(main())
+</code></pre>
+<p>Use the asyncio client inside FastAPI, aiohttp and other async frameworks.</p>
+</article><article class="topic" id="c-hiredis-basics"><h3><a class="anchor" href="#c-hiredis-basics">#</a>C · hiredis Basics</h3>
+<pre><code class="language-c">#include &lt;hiredis/hiredis.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(void) {
+    redisContext *c = redisConnect(&quot;127.0.0.1&quot;, 6379);
+    if (c == NULL || c-&gt;err) {
+        fprintf(stderr, &quot;error: %s\n&quot;, c ? c-&gt;errstr : &quot;alloc failed&quot;);
+        return 1;
+    }
+    redisReply *reply = redisCommand(c, &quot;SET %s %s&quot;, &quot;greeting&quot;, &quot;hello&quot;);
+    printf(&quot;SET: %s\n&quot;, reply-&gt;str);                 // OK
+    freeReplyObject(reply);
+
+    reply = redisCommand(c, &quot;INCR %s&quot;, &quot;counter&quot;);
+    printf(&quot;INCR: %lld\n&quot;, reply-&gt;integer);          // 1, 2, 3...
+    freeReplyObject(reply);
+
+    redisFree(c);
+    return 0;
+}
+</code></pre>
+<p><code>%s</code> arguments are sent as binary-safe bulk strings (no injection). You <strong>must</strong> free every reply.</p>
+</article><article class="topic" id="c-redis-plus-plus-basics"><h3><a class="anchor" href="#c-redis-plus-plus-basics">#</a>C++ · redis-plus-plus Basics</h3>
+<pre><code class="language-cpp">#include &lt;sw/redis++/redis++.h&gt;
+#include &lt;iostream&gt;
+using namespace sw::redis;
+
+int main() {
+    try {
+        auto redis = Redis(&quot;tcp://127.0.0.1:6379&quot;);   // has a connection pool
+
+        redis.set(&quot;greeting&quot;, &quot;hello world&quot;);
+        auto val = redis.get(&quot;greeting&quot;);               // OptionalString
+        if (val) std::cout &lt;&lt; *val &lt;&lt; &#39;\n&#39;;
+
+        redis.set(&quot;otp:9876&quot;, &quot;482913&quot;, std::chrono::seconds(300));
+        long long views = redis.incr(&quot;page:home:views&quot;);
+        std::cout &lt;&lt; &quot;views = &quot; &lt;&lt; views &lt;&lt; &#39;\n&#39;;
+
+        auto missing = redis.get(&quot;nope&quot;);
+        std::cout &lt;&lt; (missing ? *missing : &quot;(nil)&quot;) &lt;&lt; &#39;\n&#39;;
+    } catch (const Error &amp;e) {
+        std::cerr &lt;&lt; &quot;Redis error: &quot; &lt;&lt; e.what() &lt;&lt; &#39;\n&#39;;
+    }
+}
+</code></pre>
+<pre><code class="language-bash">g++ -std=c++17 main.cpp -o demo -lredis++ -lhiredis -pthread
+</code></pre>
+</article><article class="topic" id="c-data-types"><h3><a class="anchor" href="#c-data-types">#</a>C++ · Data Types</h3>
+<pre><code class="language-cpp">// Hash
+redis.hset(&quot;user:42&quot;, &quot;name&quot;, &quot;Asha&quot;);
+redis.hmset(&quot;user:42&quot;, {std::make_pair(&quot;city&quot;, &quot;Pune&quot;),
+                        std::make_pair(&quot;logins&quot;, &quot;0&quot;)});
+redis.hincrby(&quot;user:42&quot;, &quot;logins&quot;, 1);
+std::unordered_map&lt;std::string, std::string&gt; user;
+redis.hgetall(&quot;user:42&quot;, std::inserter(user, user.begin()));
+
+// List
+redis.rpush(&quot;jobs&quot;, {&quot;email:1&quot;, &quot;email:2&quot;});
+auto job = redis.lpop(&quot;jobs&quot;);                       // OptionalString
+
+// Set
+redis.sadd(&quot;post:1:tags&quot;, {&quot;redis&quot;, &quot;cache&quot;});
+bool has = redis.sismember(&quot;post:1:tags&quot;, &quot;redis&quot;);
+
+// Sorted set: output type with a score → WITHSCORES automatically
+redis.zadd(&quot;lb&quot;, {std::make_pair(&quot;priya&quot;, 9820.0),
+                  std::make_pair(&quot;arjun&quot;, 9410.0)});
+std::vector&lt;std::pair&lt;std::string, double&gt;&gt; top;
+redis.zrevrange(&quot;lb&quot;, 0, 2, std::back_inserter(top));
+for (auto &amp;[name, score] : top) std::cout &lt;&lt; name &lt;&lt; &quot; &quot; &lt;&lt; score &lt;&lt; &#39;\n&#39;;
+</code></pre>
+</article><article class="topic" id="c-cache-aside"><h3><a class="anchor" href="#c-cache-aside">#</a>C++ · Cache-Aside</h3>
+<pre><code class="language-cpp">#include &lt;optional&gt;
+#include &lt;random&gt;
+
+std::string load_product_from_db(int id);               // slow: ~50 ms
+
+std::string get_product(Redis &amp;redis, int id) {
+    const std::string key = &quot;product:&quot; + std::to_string(id);
+
+    if (auto hit = redis.get(key)) {                     // ✅ hit
+        return *hit;
+    }
+    std::string json = load_product_from_db(id);         // ❌ miss
+
+    static thread_local std::mt19937 rng{std::random_device{}()};
+    std::uniform_int_distribution&lt;int&gt; jitter(0, 60);
+    redis.set(key, json, std::chrono::seconds(600 + jitter(rng)));
+    return json;
+}
+
+void update_product(Redis &amp;redis, int id, const std::string &amp;json) {
+    save_product_to_db(id, json);                        // 1 · truth first
+    redis.del(&quot;product:&quot; + std::to_string(id));          // 2 · invalidate
+}
+</code></pre>
+</article><article class="topic" id="c-pipeline-lock-pub-sub"><h3><a class="anchor" href="#c-pipeline-lock-pub-sub">#</a>C++ · Pipeline, Lock &amp; Pub/Sub</h3>
+<pre><code class="language-cpp">// Pipeline: several commands, one round trip
+auto pipe = redis.pipeline();
+auto replies = pipe.set(&quot;a&quot;, &quot;1&quot;).incr(&quot;counter&quot;).get(&quot;a&quot;).exec();
+bool ok        = replies.get&lt;bool&gt;(0);
+long long cnt  = replies.get&lt;long long&gt;(1);
+auto a         = replies.get&lt;OptionalString&gt;(2);
+
+// Lock: SET key token NX PX 30000
+bool acquired = redis.set(&quot;lock:report&quot;, token,
+                          std::chrono::milliseconds(30000), UpdateType::NOT_EXIST);
+if (acquired) {
+    build_report();
+    redis.eval&lt;long long&gt;(
+        &quot;if redis.call(&#39;GET&#39;, KEYS[1]) == ARGV[1] then &quot;
+        &quot;return redis.call(&#39;DEL&#39;, KEYS[1]) else return 0 end&quot;,
+        {&quot;lock:report&quot;}, {token});
+}
+
+// Subscriber (runs in its own thread)
+auto sub = redis.subscriber();
+sub.on_message([](std::string channel, std::string msg) {
+    std::cout &lt;&lt; channel &lt;&lt; &quot;: &quot; &lt;&lt; msg &lt;&lt; &#39;\n&#39;;
+});
+sub.subscribe(&quot;news&quot;);
+while (true) sub.consume();               // blocks until a message arrives
+</code></pre>
+</article><article class="topic" id="client-best-practices-any-language"><h3><a class="anchor" href="#client-best-practices-any-language">#</a>Client Best Practices (Any Language)</h3>
+<ul>
+<li>✅ <strong>Reuse connections</strong>: one pooled client per process, not one per request</li>
+<li>✅ <strong>Set timeouts</strong> (connect + socket) so a slow Redis can&#39;t hang your app</li>
+<li>✅ <strong>Pipeline</strong> bulk operations; use <code>MGET</code>/<code>MSET</code>/<code>HMGET</code></li>
+<li>✅ <strong>Handle failures</strong>: on Redis errors in a cache path, fall back to the DB</li>
+<li>✅ <strong>Serialize consistently</strong> (JSON, MessagePack, protobuf) and version your keys: <code>v2:product:7</code></li>
+<li>✅ <strong>Retry with backoff</strong> on connection errors; not on logic errors</li>
+<li>❌ Don&#39;t call <code>KEYS</code>, <code>FLUSHALL</code> or huge <code>SMEMBERS</code>/<code>HGETALL</code> from app code</li>
+<li>❌ Don&#39;t store unbounded collections without a cap (<code>LTRIM</code>, TTLs)</li>
+</ul>
+</article></section><section class="part" id="part-7-scaling-high-availability"><header class="part-head"><span class="part-num">Part 7 <span aria-hidden="true">🔴</span></span><h2>Scaling & High Availability</h2><p>Replication, Sentinel and Cluster</p></header><article class="topic" id="why-one-server-isn-t-enough"><h3><a class="anchor" href="#why-one-server-isn-t-enough">#</a>Why One Server Isn&#39;t Enough</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph Problems
+    P1["💥 Server dies&lt;br/&gt;→ outage"]
+    P2["📈 Too many reads&lt;br/&gt;→ CPU maxed"]
+    P3["🧠 Data &gt; RAM&lt;br/&gt;of one machine"]
+  end
+  P1 --&gt; S1["Replication + Sentinel"]
+  P2 --&gt; S2["Read replicas"]
+  P3 --&gt; S3["Redis Cluster (sharding)"]</pre></figure><p>Two separate ideas:</p>
+<ul>
+<li><strong>Replication</strong> = <em>copies</em> of the same data (availability, read scaling)</li>
+<li><strong>Sharding</strong> = <em>splitting</em> data across machines (capacity, write scaling)</li>
+</ul>
+</article><article class="topic" id="replication-primary-replicas"><h3><a class="anchor" href="#replication-primary-replicas">#</a>Replication: Primary → Replicas</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  C["✍️ writes"] --&gt; P[("Primary")]
+  P -- "async stream of commands" --&gt; R1[("Replica 1")]
+  P -- "async stream" --&gt; R2[("Replica 2")]
+  R1 -- "chain allowed" --&gt; R3[("Replica 3")]
+  RD["📖 reads (optional)"] --&gt; R1 &amp; R2</pre></figure><pre><code class="language-text"># on the replica
+REPLICAOF 10.0.0.5 6379
+INFO replication         # role, offset, lag
+</code></pre>
+<ul>
+<li>Replicas are <strong>read-only</strong> by default</li>
+<li>Replication is <strong>asynchronous</strong>: a replica may lag a few ms behind</li>
+<li><code>WAIT 1 100</code> = &quot;block until 1 replica acknowledged, or 100 ms&quot;. It reduces, but doesn&#39;t eliminate, loss on failover</li>
+</ul>
+</article><article class="topic" id="how-a-replica-syncs"><h3><a class="anchor" href="#how-a-replica-syncs">#</a>How a Replica Syncs</h3>
+<p>A ring buffer called the <strong>replication backlog</strong> makes short disconnects cheap.</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant R as Replica
+  participant P as Primary
+  R-&gt;&gt;P: PSYNC &lt;replication-id&gt; &lt;offset&gt;
+  alt offset still in the backlog
+    P--&gt;&gt;R: +CONTINUE (partial resync)
+    P--&gt;&gt;R: only the missing commands
+  else unknown id / too far behind
+    P--&gt;&gt;R: +FULLRESYNC
+    P--&gt;&gt;R: fork, send RDB + buffered writes
+    R-&gt;&gt;R: flush old data, load RDB
+  end
+  P--&gt;&gt;R: then a live command stream (replica ACKs its offset every second)</pre></figure><aside class="note"><b>Note</b> The replication backlog (repl-backlog-size) is a ring buffer that lets short disconnects avoid an expensive full resync.</aside></article><article class="topic" id="redis-sentinel-automatic-failover"><h3><a class="anchor" href="#redis-sentinel-automatic-failover">#</a>Redis Sentinel: Automatic Failover</h3>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  S1["🛡️ Sentinel 1"] &amp; S2["🛡️ Sentinel 2"] &amp; S3["🛡️ Sentinel 3"] -. monitor .-&gt; P[("Primary ❌")]
+  S1 &amp; S2 &amp; S3 -. monitor .-&gt; R1[("Replica 1")]
+  S1 &amp; S2 &amp; S3 -. monitor .-&gt; R2[("Replica 2")]
+  App["App"] -- "who is primary?" --&gt; S1</pre></figure><ol>
+<li>Sentinels ping the primary. One says <strong>&quot;subjectively down&quot;</strong> (SDOWN)</li>
+<li>A <strong>quorum</strong> agrees → <strong>&quot;objectively down&quot;</strong> (ODOWN)</li>
+<li>Sentinels elect a leader (Raft-like vote, needs a majority)</li>
+<li>Leader promotes the best replica, repoints the others</li>
+<li>Clients ask Sentinel for the new primary&#39;s address</li>
+</ol>
+<p>Run <strong>at least 3 Sentinels</strong> on separate machines.</p>
+</article><article class="topic" id="redis-cluster-sharding-with-hash-slots"><h3><a class="anchor" href="#redis-cluster-sharding-with-hash-slots">#</a>Redis Cluster: Sharding With Hash Slots</h3>
+<p>The keyspace is split into <strong>16,384 hash slots</strong>. Each primary owns a range.</p>
+<div class="formula">slot = CRC16(key) mod 16384</div>
+
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  K["key 'user:42'"] --&gt; F["CRC16 mod 16384&lt;br/&gt;= slot 5474 (example)"]
+  F --&gt; B
+  subgraph Cluster
+    A["Node A&lt;br/&gt;slots 0–5460"]
+    B["Node B&lt;br/&gt;slots 5461–10922"]
+    C["Node C&lt;br/&gt;slots 10923–16383"]
+    A --- Ar["replica A'"]
+    B --- Br["replica B'"]
+    C --- Cr["replica C'"]
+  end</pre></figure><p>Nodes talk over a <strong>gossip</strong> bus (port + 10000) and fail over automatically when a primary dies.</p>
+</article><article class="topic" id="cluster-redirects-and-hash-tags"><h3><a class="anchor" href="#cluster-redirects-and-hash-tags">#</a>Cluster: Redirects and Hash Tags</h3>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant C as Client
+  participant A as Node A
+  participant B as Node B
+  C-&gt;&gt;A: GET user:42
+  A--&gt;&gt;C: -MOVED 5474 10.0.0.2:6379
+  C-&gt;&gt;C: update slot map
+  C-&gt;&gt;B: GET user:42
+  B--&gt;&gt;C: "Asha"</pre></figure><ul>
+<li>Smart clients cache the <strong>slot → node map</strong> and go direct next time</li>
+<li><code>-ASK</code> redirects happen <strong>temporarily</strong> while a slot is migrating</li>
+<li><strong>Multi-key commands</strong> (<code>MGET</code>, <code>SINTER</code>, transactions, Lua) need all keys in <strong>one slot</strong></li>
+<li><strong>Hash tags</strong> force that: only the part inside <code>{…}</code> is hashed</li>
+</ul>
+<pre><code class="language-text">{user:42}:profile   {user:42}:cart   {user:42}:orders   → same slot ✅
+</code></pre>
+</article><article class="topic" id="scaling-options-compared"><h3><a class="anchor" href="#scaling-options-compared">#</a>Scaling Options Compared</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Setup</th>
+<th>Nodes</th>
+<th>Survives node loss</th>
+<th>Scales writes</th>
+<th>Multi-key ops</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Single instance</td>
+<td>1</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅ all</td>
+</tr>
+<tr>
+<td>Primary + replicas</td>
+<td>1 + N</td>
+<td>manual promote</td>
+<td>❌</td>
+<td>✅ all</td>
+</tr>
+<tr>
+<td>+ Sentinel</td>
+<td>1 + N + 3</td>
+<td>✅ automatic</td>
+<td>❌</td>
+<td>✅ all</td>
+</tr>
+<tr>
+<td>Cluster</td>
+<td>≥ 3 primaries (+ replicas)</td>
+<td>✅ automatic</td>
+<td>✅</td>
+<td>⚠️ same slot only</td>
+</tr>
+</tbody></table></div>
+<p><strong>Start simple.</strong> A single well-sized instance goes a long way; add Sentinel for HA; use Cluster when data or write load exceeds one machine.</p>
+</article><article class="topic" id="consistency-caveats"><h3><a class="anchor" href="#consistency-caveats">#</a>Consistency Caveats ⚠️</h3>
+<p>Redis favours <strong>speed and availability</strong> over strong consistency.</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+  participant C as Client
+  participant P as Primary
+  participant R as Replica
+  C-&gt;&gt;P: SET balance 100
+  P--&gt;&gt;C: OK ✅
+  Note over P: 💥 crashes before replicating
+  Note over R: promoted to primary, never saw the write
+  C-&gt;&gt;R: GET balance
+  R--&gt;&gt;C: old value 😬</pre></figure><ul>
+<li>Acknowledged writes <strong>can be lost</strong> during failover</li>
+<li>A network partition can briefly create two primaries (bounded by <code>min-replicas-to-write</code>)</li>
+<li>Treat Redis as the <strong>source of truth</strong> only when you understand and accept this</li>
+</ul>
+</article><article class="topic recap" id="recap-of-part-7"><h3><a class="anchor" href="#recap-of-part-7">#</a>Recap of Part 7 ✅</h3>
+<ul>
+<li><strong>Replication</strong> = async copies; partial resync via the backlog, full resync via RDB</li>
+<li><strong>Sentinel</strong> = monitors + votes + promotes a replica (run ≥ 3)</li>
+<li><strong>Cluster</strong> = 16,384 slots, <code>CRC16 mod 16384</code>, MOVED/ASK redirects, hash tags</li>
+<li>Async replication means <strong>possible data loss on failover</strong></li>
+<li>Scale up first, then out</li>
+</ul>
+</article></section><section class="part" id="part-8-redis-vs-google-s-leveldb"><header class="part-head"><span class="part-num">Part 8 <span aria-hidden="true">🔴</span></span><h2>Redis vs Google's LevelDB</h2><p>Two key-value stores, two very different philosophies</p></header><article class="topic" id="what-is-leveldb"><h3><a class="anchor" href="#what-is-leveldb">#</a>What Is LevelDB?</h3>
+<p><strong>LevelDB</strong> is an <strong>embedded</strong>, <strong>on-disk</strong>, <strong>sorted</strong> key-value store written in C++ at Google by <strong>Jeff Dean</strong> and <strong>Sanjay Ghemawat</strong>, open-sourced in <strong>2011</strong>.</p>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:10px">
+<div style="background:var(--surface0);border-top:5px solid var(--blue);border-radius:12px;padding:14px 18px"><b>📦 A library, not a server</b><br>Linked into your program. No network, no port, no separate process.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--green);border-radius:12px;padding:14px 18px"><b>💾 Disk first</b><br>Data can be far larger than RAM. Built on an <b>LSM tree</b>.</div>
+<div style="background:var(--surface0);border-top:5px solid var(--peach);border-radius:12px;padding:14px 18px"><b>🔤 Sorted keys</b><br>Keys are ordered bytewise, so range scans and prefix scans are natural.</div>
+</div>
+
+<ul>
+<li>Only a handful of operations: <code>Put</code>, <code>Get</code>, <code>Delete</code>, atomic <code>WriteBatch</code>, iterators, snapshots</li>
+<li>Keys and values are arbitrary byte arrays</li>
+<li>Used inside <strong>Chrome (IndexedDB)</strong>, <strong>Bitcoin Core</strong> and many other systems; its ideas come from Google&#39;s <strong>Bigtable</strong></li>
+</ul>
+</article><article class="topic" id="the-core-difference-in-one-picture"><h3><a class="anchor" href="#the-core-difference-in-one-picture">#</a>The Core Difference in One Picture</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph RedisSide["Redis: a server"]
+    direction TB
+    A1["app 1"] &amp; A2["app 2"] &amp; A3["app 3"] -- TCP --&gt; RS["redis-server&lt;br/&gt;🧠 all data in RAM"]
+    RS -.-&gt; RD["💾 optional RDB/AOF"]
+  end
+  subgraph LevelSide["LevelDB: a library"]
+    direction TB
+    subgraph Proc["your process"]
+      APP["app code"] -- "function call" --&gt; LIB["libleveldb"]
+    end
+    LIB --&gt; F["💾 files on disk&lt;br/&gt;+ RAM caches"]
+  end</pre></figure><p><strong>Redis</strong> = shared, networked, memory-first, data-structure server.
+<strong>LevelDB</strong> = private, embedded, disk-first, sorted byte-array map.</p>
+</article><article class="topic" id="how-leveldb-writes-the-lsm-tree"><h3><a class="anchor" href="#how-leveldb-writes-the-lsm-tree">#</a>How LevelDB Writes: The LSM Tree</h3>
+<p><strong>Log-Structured Merge tree:</strong> turn random writes into fast <strong>sequential</strong> writes.</p>
+<div style="display:flex;flex-direction:column;gap:10px;margin:12px 0">
+<small>🧠 write path (fast, sequential)</small>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="background:var(--surface0);border:2px solid var(--text);border-radius:10px;padding:8px 12px;text-align:center">✍️ <b>Put(k, v)</b></div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--peach);border-radius:10px;padding:8px 12px;text-align:center">1 · append to<br><b>write-ahead log</b> (disk)</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--green);border-radius:10px;padding:8px 12px;text-align:center">2 · insert into<br><b>memtable</b> (skiplist, RAM)</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--yellow);border-radius:10px;padding:8px 12px;text-align:center">3 · full (~4 MB) →<br><b>immutable memtable</b></div></div>
+<div style="padding-left:40%">↓ background flush · then <b>compaction</b> pushes data down ↓</div>
+<small>💾 on disk: levels of sorted files</small>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="background:var(--surface0);border:2px solid var(--blue);border-radius:10px;padding:8px 12px;text-align:center">4 · flush → <b>Level-0</b><br>SSTables</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--sapphire);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-1</b><br>~10 MB</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--sky);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-2</b><br>~100 MB</div><div style="font-size:1.3em">→</div><div style="background:var(--surface0);border:2px solid var(--teal);border-radius:10px;padding:8px 12px;text-align:center"><b>Level-3…6</b><br>×10 each</div></div>
+</div>
+
+<p>Fun link: LevelDB&#39;s memtable is a <strong>skip list</strong>, the same structure behind Redis sorted sets!</p>
+</article><article class="topic" id="sstables-sorted-string-tables"><h3><a class="anchor" href="#sstables-sorted-string-tables">#</a>SSTables: Sorted String Tables</h3>
+<p>Each on-disk file is <strong>immutable</strong> and sorted by key.</p>
+<pre><code class="language-text">┌───────────────────────────── 000123.ldb ─────────────────────────────┐
+│ data block 1: apple→… banana→… cherry→…      (compressed, ~4 KB)     │
+│ data block 2: date→…  fig→…    grape→…                                │
+│ …                                                                     │
+│ filter block: Bloom filter  (&quot;is &#39;kiwi&#39; maybe here?&quot;)                 │
+│ index block:  last key of each data block → offset                    │
+│ footer:       pointers to index + meta blocks                         │
+└──────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>Immutable</strong> → no in-place updates; updates/deletes are new entries (deletes are <strong>tombstones</strong>)</li>
+<li><strong>Index block</strong> → binary search to the right data block</li>
+<li><strong>Bloom filter</strong> → skip files that definitely don&#39;t have the key</li>
+<li><strong>Snappy compression</strong> per block</li>
+</ul>
+</article><article class="topic" id="how-leveldb-reads"><h3><a class="anchor" href="#how-leveldb-reads">#</a>How LevelDB Reads</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  G["Get('kiwi')"] --&gt; M{"memtable?"}
+  M -- found --&gt; Done["✅ return"]
+  M -- no --&gt; I{"immutable memtable?"}
+  I -- found --&gt; Done
+  I -- no --&gt; L0{"Level-0 files&lt;br/&gt;(newest first, may overlap)"}
+  L0 -- found --&gt; Done
+  L0 -- no --&gt; L1{"Level-1: one file&lt;br/&gt;whose range covers 'kiwi'"}
+  L1 -- "Bloom says no → skip" --&gt; L2{"Level-2 …"}
+  L1 -- found --&gt; Done
+  L2 --&gt; Nf["❌ not found"]</pre></figure><p>Newest data wins. Reads may touch several files (<strong>read amplification</strong>), which Bloom filters and the block cache soften.</p>
+</article><article class="topic" id="compaction"><h3><a class="anchor" href="#compaction">#</a>Compaction</h3>
+<p>Background threads <strong>merge-sort</strong> overlapping files into the next level, dropping overwritten values and old tombstones.</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  subgraph Before
+    a["L1: [a…f]"]
+    b["L2: [a…c] [d…h] [i…m]"]
+  end
+  a -- "merge with overlapping L2 files" --&gt; m["merge sort,&lt;br/&gt;keep newest version"]
+  b --&gt; m
+  m --&gt; c["L2: [a…c'] [d…h'] [i…m]"]</pre></figure><div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Trade-off</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Write amplification</strong></td>
+<td>the same data is rewritten several times as it moves down levels</td>
+</tr>
+<tr>
+<td><strong>Read amplification</strong></td>
+<td>a lookup may check several levels</td>
+</tr>
+<tr>
+<td><strong>Space amplification</strong></td>
+<td>old versions linger until compacted</td>
+</tr>
+</tbody></table></div>
+<p>If L0 fills faster than compaction drains it, LevelDB <strong>slows down</strong>, then <strong>stalls</strong> writes.</p>
+</article><article class="topic" id="leveldb-in-c"><h3><a class="anchor" href="#leveldb-in-c">#</a>LevelDB in C++</h3>
+<pre><code class="language-cpp">#include &lt;leveldb/db.h&gt;
+#include &lt;leveldb/write_batch.h&gt;
+#include &lt;leveldb/filter_policy.h&gt;
+#include &lt;iostream&gt;
+
+int main() {
+    leveldb::Options options;
+    options.create_if_missing = true;
+    options.filter_policy = leveldb::NewBloomFilterPolicy(10);   // 10 bits/key
+
+    leveldb::DB* db;
+    leveldb::Status s = leveldb::DB::Open(options, &quot;/tmp/demo-ldb&quot;, &amp;db);
+    if (!s.ok()) { std::cerr &lt;&lt; s.ToString() &lt;&lt; &#39;\n&#39;; return 1; }
+
+    db-&gt;Put(leveldb::WriteOptions(), &quot;user:42&quot;, &quot;Asha&quot;);
+    std::string value;
+    s = db-&gt;Get(leveldb::ReadOptions(), &quot;user:42&quot;, &amp;value);
+    if (s.ok()) std::cout &lt;&lt; value &lt;&lt; &#39;\n&#39;;                        // Asha
+    if (db-&gt;Get(leveldb::ReadOptions(), &quot;user:99&quot;, &amp;value).IsNotFound())
+        std::cout &lt;&lt; &quot;not found\n&quot;;
+
+    delete db;
+    delete options.filter_policy;
+}
+</code></pre>
+<pre><code class="language-bash">g++ -std=c++17 ldb.cpp -o ldb -lleveldb -lsnappy -pthread
+</code></pre>
+</article><article class="topic" id="leveldb-batches-range-scans-snapshots"><h3><a class="anchor" href="#leveldb-batches-range-scans-snapshots">#</a>LevelDB: Batches, Range Scans, Snapshots</h3>
+<pre><code class="language-cpp">// Atomic batch: rename a key safely
+leveldb::WriteBatch batch;
+batch.Delete(&quot;user:42:old&quot;);
+batch.Put(&quot;user:42:new&quot;, &quot;Asha&quot;);
+leveldb::WriteOptions wo;
+wo.sync = true;                                  // fsync the log before returning
+db-&gt;Write(wo, &amp;batch);
+
+// Range / prefix scan: keys are sorted!
+std::unique_ptr&lt;leveldb::Iterator&gt; it(db-&gt;NewIterator(leveldb::ReadOptions()));
+for (it-&gt;Seek(&quot;user:&quot;); it-&gt;Valid() &amp;&amp; it-&gt;key().starts_with(&quot;user:&quot;); it-&gt;Next()) {
+    std::cout &lt;&lt; it-&gt;key().ToString() &lt;&lt; &quot; = &quot; &lt;&lt; it-&gt;value().ToString() &lt;&lt; &#39;\n&#39;;
+}
+
+// Snapshot: a consistent, frozen view while writes continue
+leveldb::ReadOptions ro;
+ro.snapshot = db-&gt;GetSnapshot();
+/* … read many keys consistently … */
+db-&gt;ReleaseSnapshot(ro.snapshot);
+</code></pre>
+<p>Python equivalent via <strong>plyvel</strong>: <code>db = plyvel.DB(&quot;/tmp/demo-ldb&quot;, create_if_missing=True)</code>, then <code>db.put(b&quot;k&quot;, b&quot;v&quot;)</code>, <code>db.iterator(prefix=b&quot;user:&quot;)</code>.</p>
+</article><article class="topic" id="same-task-both-ways"><h3><a class="anchor" href="#same-task-both-ways">#</a>Same Task, Both Ways</h3>
+<p>&quot;Store user 42, then list all users.&quot;</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+<div>
+
+<p><strong>Redis</strong> (server, no key ordering)</p>
+<pre><code class="language-python">r.hset(&quot;user:42&quot;, mapping={&quot;name&quot;: &quot;Asha&quot;})
+r.sadd(&quot;users&quot;, 42)          # keep an index yourself
+for uid in r.smembers(&quot;users&quot;):
+    print(r.hgetall(f&quot;user:{uid}&quot;))
+</code></pre>
+</div>
+<div>
+
+<p><strong>LevelDB</strong> (embedded, ordered keys)</p>
+<pre><code class="language-python">db.put(b&quot;user:42&quot;, b&#39;{&quot;name&quot;:&quot;Asha&quot;}&#39;)
+# ordering gives you the &quot;index&quot; for free
+for k, v in db.iterator(prefix=b&quot;user:&quot;):
+    print(k, v)
+</code></pre>
+</div>
+</div>
+
+<p>Redis gives you <strong>rich structures</strong> but no global order. LevelDB gives you <strong>ordered bytes</strong>; you build structures yourself by encoding them into keys.</p>
+</article><article class="topic" id="head-to-head-comparison"><h3><a class="anchor" href="#head-to-head-comparison">#</a>Head-to-Head Comparison</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th><strong>Redis</strong></th>
+<th><strong>LevelDB</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Type</td>
+<td>Networked server</td>
+<td>Embedded C++ library</td>
+</tr>
+<tr>
+<td>Primary storage</td>
+<td>RAM</td>
+<td>Disk (SSD/HDD)</td>
+</tr>
+<tr>
+<td>Dataset size</td>
+<td>≤ RAM</td>
+<td>≫ RAM (hundreds of GB)</td>
+</tr>
+<tr>
+<td>Core structure</td>
+<td>Hash table (+ skiplists, listpacks…)</td>
+<td>LSM tree (skiplist memtable + SSTables)</td>
+</tr>
+<tr>
+<td>Key order</td>
+<td>Unordered (sorted sets for ranges)</td>
+<td>Globally sorted, range scans</td>
+</tr>
+<tr>
+<td>Data model</td>
+<td>Strings, lists, hashes, sets, zsets, streams…</td>
+<td>Bytes → bytes</td>
+</tr>
+<tr>
+<td>Access</td>
+<td>Many clients, any language, over TCP</td>
+<td>One process at a time (file lock)</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>~µs server-side + network RTT</td>
+<td>µs (cache) to ms (disk), no network</td>
+</tr>
+<tr>
+<td>Durability</td>
+<td>Optional (RDB/AOF)</td>
+<td>Always (WAL + SSTables)</td>
+</tr>
+<tr>
+<td>TTL / eviction</td>
+<td>Built in</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Replication / cluster</td>
+<td>Built in</td>
+<td>None (you build it)</td>
+</tr>
+<tr>
+<td>Extras</td>
+<td>Pub/Sub, Lua, streams, search</td>
+<td>Snapshots, iterators, compression</td>
+</tr>
+</tbody></table></div>
+</article><article class="topic" id="when-to-choose-which"><h3><a class="anchor" href="#when-to-choose-which">#</a>When to Choose Which</h3>
+<figure class="diagram"><pre class="mermaid">flowchart TD
+  Q{"What are you building?"}
+  Q --&gt; A["Shared cache / sessions /&lt;br/&gt;rate limits for many servers"] --&gt; R1["🟥 Redis"]
+  Q --&gt; B["Leaderboards, queues,&lt;br/&gt;pub/sub, real-time counters"] --&gt; R1
+  Q --&gt; C["Local storage inside an app&lt;br/&gt;(browser, desktop, mobile, node)"] --&gt; L1["🟦 LevelDB / RocksDB"]
+  Q --&gt; D["Data much bigger than RAM,&lt;br/&gt;must persist cheaply"] --&gt; L1
+  Q --&gt; E["Storage engine for your&lt;br/&gt;own database"] --&gt; L1
+  Q --&gt; F["Need ordered range scans&lt;br/&gt;over huge keyspaces"] --&gt; L1</pre></figure><p>They are <strong>not really competitors</strong>: Redis is a <strong>service</strong> you deploy; LevelDB is a <strong>building block</strong> you compile in.</p>
+</article><article class="topic" id="where-they-meet"><h3><a class="anchor" href="#where-they-meet">#</a>Where They Meet</h3>
+<p>People have combined the two ideas many times:</p>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  P["Redis protocol&lt;br/&gt;(RESP + commands)"] --&gt; K["Apache Kvrocks"] --&gt; Rk[("RocksDB")]
+  P --&gt; Pk["Pika"] --&gt; Rk
+  P --&gt; SS["SSDB"] --&gt; Ld[("LevelDB")]
+  Rk -. "fork of" .-&gt; Ld</pre></figure><ul>
+<li><strong>RocksDB</strong> (Meta, 2012) forked LevelDB and added multi-threaded compaction, column families, transactions and many tuning knobs</li>
+<li><strong>Kvrocks / Pika / SSDB</strong> speak Redis&#39;s protocol but store data on disk in an LSM tree → data ≫ RAM, lower cost, higher latency</li>
+<li>Redis&#39;s commercial <strong>Auto Tiering</strong> (formerly <em>Redis on Flash</em>) keeps hot data in RAM and cold values on SSD using a RocksDB-family engine</li>
+<li>Ordered keys let these projects encode Redis types, e.g. a hash field as <code>h|user:42|name → Asha</code></li>
+</ul>
+</article><article class="topic" id="hash-table-vs-lsm-tree-vs-b-tree"><h3><a class="anchor" href="#hash-table-vs-lsm-tree-vs-b-tree">#</a>Hash Table vs LSM Tree vs B-Tree</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Hash table (Redis)</th>
+<th>LSM tree (LevelDB)</th>
+<th>B-tree (InnoDB, SQLite)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Point lookup</td>
+<td><strong>O(1)</strong> in RAM</td>
+<td>O(levels), Bloom-assisted</td>
+<td>O(log N)</td>
+</tr>
+<tr>
+<td>Range scan</td>
+<td>❌ (needs a separate index)</td>
+<td>✅ sorted</td>
+<td>✅ sorted</td>
+</tr>
+<tr>
+<td>Write pattern</td>
+<td>in-place in RAM</td>
+<td><strong>sequential append</strong> → great writes</td>
+<td>in-place page updates</td>
+</tr>
+<tr>
+<td>Best at</td>
+<td>tiny latency</td>
+<td>write-heavy, big data</td>
+<td>balanced read/write, OLTP</td>
+</tr>
+<tr>
+<td>Pain point</td>
+<td>RAM cost</td>
+<td>compaction, read/write amplification</td>
+<td>random I/O on writes</td>
+</tr>
+</tbody></table></div>
+</article><article class="topic recap" id="recap-of-part-8"><h3><a class="anchor" href="#recap-of-part-8">#</a>Recap of Part 8 ✅</h3>
+<ul>
+<li><strong>LevelDB</strong> = Google&#39;s embedded, disk-based, sorted key-value <strong>library</strong></li>
+<li>Writes: <strong>WAL → memtable (skiplist) → SSTables → compaction</strong> across levels</li>
+<li>Reads: memtable → L0 → L1… with <strong>Bloom filters</strong> and indexes</li>
+<li><strong>Redis</strong> = networked, memory-first <strong>server</strong> with rich data structures, TTLs, replication</li>
+<li>Pick Redis for shared, fast, ephemeral-ish data; LevelDB/RocksDB for embedded, large, persistent, ordered data</li>
+<li><strong>Kvrocks, Pika, SSDB</strong> = Redis protocol on top of LSM engines</li>
+</ul>
+</article></section><section class="part" id="part-9-production-wrap-up"><header class="part-head"><span class="part-num">Part 9 <span aria-hidden="true">🏁</span></span><h2>Production & Wrap-Up</h2><p>Running Redis safely, the wider ecosystem, and your next steps</p></header><article class="topic" id="production-config-checklist"><h3><a class="anchor" href="#production-config-checklist">#</a>Production Config Checklist</h3>
+<pre><code class="language-text"># redis.conf essentials
+bind 10.0.0.5                  # never expose to the internet
+protected-mode yes
+requirepass / ACL users        # authentication
+tls-port 6380                  # encrypt traffic
+maxmemory 6gb                  # leave ~25% RAM for fork/COW + OS
+maxmemory-policy allkeys-lru   # cache; noeviction for data stores
+appendonly yes                 # if data matters
+appendfsync everysec
+rename-command FLUSHALL &quot;&quot;     # or use ACLs to block dangerous commands
+</code></pre>
+<pre><code class="language-text">ACL SETUSER app on &gt;s3cret ~app:* +@read +@write -@dangerous
+</code></pre>
+<p>Also on Linux: disable <strong>Transparent Huge Pages</strong>, set <code>vm.overcommit_memory = 1</code> so <code>fork()</code> succeeds.</p>
+</article><article class="topic" id="monitoring-debugging"><h3><a class="anchor" href="#monitoring-debugging">#</a>Monitoring &amp; Debugging</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Command / tool</th>
+<th>What it tells you</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>INFO</code> (<code>memory</code>, <code>stats</code>, <code>replication</code>, <code>persistence</code>)</td>
+<td>health overview</td>
+</tr>
+<tr>
+<td><code>INFO stats</code> → <code>keyspace_hits</code> / <code>keyspace_misses</code></td>
+<td>cache hit ratio</td>
+</tr>
+<tr>
+<td><code>SLOWLOG GET 10</code></td>
+<td>slowest recent commands</td>
+</tr>
+<tr>
+<td><code>LATENCY DOCTOR</code></td>
+<td>human-readable latency analysis</td>
+</tr>
+<tr>
+<td><code>MEMORY USAGE key</code> / <code>MEMORY DOCTOR</code></td>
+<td>memory per key / advice</td>
+</tr>
+<tr>
+<td><code>redis-cli --bigkeys</code> / <code>--memkeys</code> / <code>--hotkeys</code></td>
+<td>find problem keys</td>
+</tr>
+<tr>
+<td><code>CLIENT LIST</code></td>
+<td>who&#39;s connected, what they&#39;re doing</td>
+</tr>
+<tr>
+<td><code>MONITOR</code></td>
+<td>live stream of every command (⚠️ expensive, debug only)</td>
+</tr>
+<tr>
+<td><code>redis-benchmark -q -n 100000</code></td>
+<td>quick throughput test</td>
+</tr>
+</tbody></table></div>
+<p><strong>Watch:</strong> memory used vs <code>maxmemory</code>, evictions, hit ratio, connected clients, replication lag, fork time, p99 latency.</p>
+</article><article class="topic" id="common-mistakes"><h3><a class="anchor" href="#common-mistakes">#</a>Common Mistakes 🚫</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>KEYS * in production</b><br>→ use <code>SCAN</code></div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>No TTL on cache keys</b><br>→ memory grows forever</div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>No maxmemory</b><br>→ OOM killer ends Redis</div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Open to the internet, no password</b><br>→ compromised in minutes</div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>New connection per request</b><br>→ latency & connection storms</div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Giant keys / collections</b><br>→ event loop stalls</div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Treating Redis as the only copy</b><br>→ without persistence + HA, a restart loses it</div>
+<div style="background:var(--surface0);border-left:5px solid var(--red);border-radius:10px;padding:10px 16px"><b>Long Lua scripts / MULTI blocks</b><br>→ everyone waits</div>
+</div></article><article class="topic" id="the-wider-ecosystem"><h3><a class="anchor" href="#the-wider-ecosystem">#</a>The Wider Ecosystem</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Project</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Valkey</strong></td>
+<td>Linux Foundation fork of Redis 7.2 (BSD licence), backed by AWS, Google and others</td>
+</tr>
+<tr>
+<td><strong>KeyDB</strong></td>
+<td>Multi-threaded Redis fork</td>
+</tr>
+<tr>
+<td><strong>Dragonfly</strong></td>
+<td>Redis/Memcached-compatible, multi-threaded, shared-nothing design</td>
+</tr>
+<tr>
+<td><strong>Microsoft Garnet</strong></td>
+<td>.NET cache server speaking RESP</td>
+</tr>
+<tr>
+<td><strong>Memcached</strong></td>
+<td>Classic multi-threaded string cache</td>
+</tr>
+<tr>
+<td><strong>Kvrocks / Pika</strong></td>
+<td>Redis protocol on RocksDB (disk)</td>
+</tr>
+<tr>
+<td><strong>Managed</strong></td>
+<td>AWS ElastiCache &amp; MemoryDB, Google Memorystore, Azure Cache/Managed Redis, Redis Cloud</td>
+</tr>
+</tbody></table></div>
+<p>Most clients (<code>redis-py</code>, <code>redis-plus-plus</code>) work with any RESP-compatible server.</p>
+</article><article class="topic" id="big-o-cheat-sheet"><h3><a class="anchor" href="#big-o-cheat-sheet">#</a>Big-O Cheat Sheet</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Complexity</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>GET</code> <code>SET</code> <code>INCR</code> <code>HGET</code> <code>HSET</code> <code>SADD</code> <code>SISMEMBER</code></td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td><code>LPUSH</code> <code>RPOP</code> <code>LLEN</code></td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td><code>LINDEX</code> <code>LINSERT</code> <code>LRANGE</code></td>
+<td>O(N) / O(S+N)</td>
+</tr>
+<tr>
+<td><code>ZADD</code> <code>ZREM</code> <code>ZRANK</code> <code>ZSCORE</code>*</td>
+<td>O(log N) (*<code>ZSCORE</code> O(1))</td>
+</tr>
+<tr>
+<td><code>ZRANGE start stop</code></td>
+<td>O(log N + M)</td>
+</tr>
+<tr>
+<td><code>SMEMBERS</code> <code>HGETALL</code> <code>KEYS</code></td>
+<td>O(N) ⚠️</td>
+</tr>
+<tr>
+<td><code>SINTER</code></td>
+<td>O(N × M) worst case</td>
+</tr>
+<tr>
+<td><code>PFADD</code> / <code>PFCOUNT</code> (single key)</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td><code>SCAN</code> per call</td>
+<td>O(1); full iteration O(N)</td>
+</tr>
+<tr>
+<td><code>DEL</code> on a collection</td>
+<td>O(N) → prefer <code>UNLINK</code></td>
+</tr>
+</tbody></table></div>
+</article><article class="topic" id="test-yourself-1-2"><h3><a class="anchor" href="#test-yourself-1-2">#</a>Test Yourself 🧪 (1/2)</h3>
+<ul>
+<li><strong>1.</strong> Why does <code>KEYS *</code> hurt production but <code>SCAN</code> doesn&#39;t?<ul>
+<li><em>One thread: <code>KEYS</code> blocks until every key is walked; <code>SCAN</code> works in small chunks.</em></li>
+</ul>
+</li>
+<li><strong>2.</strong> Which data type for a real-time leaderboard?<ul>
+<li><em>Sorted set.</em></li>
+</ul>
+</li>
+<li><strong>3.</strong> After updating the DB, should you <code>SET</code> or <code>DEL</code> the cache key?<ul>
+<li><em><code>DEL</code> (cache-aside), and keep a TTL.</em></li>
+</ul>
+</li>
+</ul>
+</article><article class="topic" id="test-yourself-2-2"><h3><a class="anchor" href="#test-yourself-2-2">#</a>Test Yourself 🧪 (2/2)</h3>
+<ul>
+<li><strong>4.</strong> What does <code>fork()</code> + copy-on-write give RDB?<ul>
+<li><em>A consistent snapshot while the parent keeps serving.</em></li>
+</ul>
+</li>
+<li><strong>5.</strong> In a Cluster, how do you make <code>MGET</code> work on 3 keys?<ul>
+<li><em>Hash tags: <code>{user:42}:a</code>, <code>{user:42}:b</code>, …</em></li>
+</ul>
+</li>
+<li><strong>6.</strong> Name two ways LevelDB differs from Redis.<ul>
+<li><em>Embedded library; disk-based LSM tree with sorted keys.</em></li>
+</ul>
+</li>
+</ul>
+</article><article class="topic" id="your-learning-path"><h3><a class="anchor" href="#your-learning-path">#</a>Your Learning Path</h3>
+<figure class="diagram"><pre class="mermaid">flowchart LR
+  A["1 · Install &amp; play&lt;br/&gt;redis-cli, all data types"] --&gt; B["2 · Build a cache-aside&lt;br/&gt;API in Python"]
+  B --&gt; C["3 · Add rate limiting,&lt;br/&gt;sessions, a leaderboard"]
+  C --&gt; D["4 · Streams worker&lt;br/&gt;+ Pub/Sub chat"]
+  D --&gt; E["5 · Turn on AOF, kill -9,&lt;br/&gt;see what survives"]
+  E --&gt; F["6 · Replicas + Sentinel&lt;br/&gt;with Docker Compose"]
+  F --&gt; G["7 · 6-node Cluster,&lt;br/&gt;reshard live"]
+  G --&gt; H["8 · Write a tiny LSM&lt;br/&gt;store or read LevelDB source"]</pre></figure><p><strong>Resources:</strong> redis.io/docs · <code>try.redis.io</code>-style playgrounds · <em>Redis in Action</em> · the LevelDB <code>doc/impl.md</code> · the Redis source (<code>t_zset.c</code>, <code>dict.c</code>, <code>ae.c</code>) · the Bigtable paper</p>
+</article><article class="topic" id="the-whole-story-in-one-picture"><h3><a class="anchor" href="#the-whole-story-in-one-picture">#</a>The Whole Story in One Picture</h3>
+<figure class="diagram"><pre class="mermaid">flowchart TB
+  subgraph Basics["🟢 Basics"]
+    b1["in-memory key-value server"] --&gt; b2["rich data types"]
+  end
+  subgraph Internals["🟡 Internals"]
+    i1["single-thread event loop"] --&gt; i2["compact ↔ fast encodings"] --&gt; i3["lazy + active expiry, LRU/LFU"] --&gt; i4["RDB + AOF"]
+  end
+  subgraph Practice["🟠 Practice"]
+    p1["cache-aside + TTL"] --&gt; p2["sessions · rate limits · leaderboards · queues · pub/sub · geo · AI"]
+  end
+  subgraph Advanced["🔴 Advanced"]
+    a1["replication · Sentinel · Cluster"] --&gt; a2["LevelDB: embedded LSM on disk"]
+  end
+  Basics --&gt; Internals --&gt; Practice --&gt; Advanced</pre></figure></article><article class="topic" id="thank-you"><h3>Thank You 🙏</h3>
+<h3>Now go run <code>redis-cli</code> and break things.</h3>
+<pre><code class="language-text">127.0.0.1:6379&gt; SET learned:redis &quot;yes&quot; EX 31536000
+OK
+</code></pre>
+<p>Questions?</p>
+</article></section>
+  <footer>Redis, From Zero to Deep Dive · Diagrams render with Mermaid, code highlighting with highlight.js.</footer>
+</main>
+</div>
+<button class="to-top" id="toTop" aria-label="Back to top">↑</button>
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+(function () {
+  var root = document.documentElement;
+  var stored = null;
+  try { stored = localStorage.getItem('redis-guide-theme'); } catch (e) {}
+  if (stored) root.setAttribute('data-theme', stored);
+  function isDark() {
+    var t = root.getAttribute('data-theme');
+    return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  function syncHljs() {
+    var d = isDark();
+    document.getElementById('hljs-dark').disabled = !d;
+    document.getElementById('hljs-light').disabled = d;
+  }
+
+  // Code: highlight + copy buttons
+  document.querySelectorAll('pre > code').forEach(function (el) {
+    if (window.hljs && !el.parentElement.classList.contains('mermaid')) {
+      if (!/language-/.test(el.className)) el.classList.add('language-plaintext');
+      try { hljs.highlightElement(el); } catch (e) {}
+    }
+    var b = document.createElement('button');
+    b.className = 'copy'; b.type = 'button'; b.textContent = 'Copy';
+    b.addEventListener('click', function () {
+      navigator.clipboard && navigator.clipboard.writeText(el.innerText).then(function () {
+        b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1200);
+      });
+    });
+    el.parentElement.appendChild(b);
+  });
+
+  // Mermaid: keep sources so diagrams can re-render on theme change
+  var blocks = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+  blocks.forEach(function (b) { b.dataset.src = b.textContent; });
+  function cssVar(n) { return getComputedStyle(root).getPropertyValue(n).trim(); }
+  function renderDiagrams() {
+    if (!window.mermaid) return;
+    var dark = isDark();
+    mermaid.initialize({
+      startOnLoad: false, securityLevel: 'loose', theme: 'base',
+      fontFamily: 'Inter, system-ui, sans-serif',
+      sequence: { mirrorActors: false },
+      themeVariables: {
+        darkMode: dark, fontSize: '15px',
+        background: cssVar('--mantle'),
+        primaryColor: cssVar('--surface0'), primaryTextColor: cssVar('--text'),
+        primaryBorderColor: cssVar('--mauve'), lineColor: cssVar('--overlay1'),
+        secondaryColor: cssVar('--surface1'), tertiaryColor: cssVar('--base'),
+        clusterBkg: cssVar('--base'), clusterBorder: cssVar('--surface2'),
+        edgeLabelBackground: cssVar('--mantle'), titleColor: cssVar('--text'),
+        actorBkg: cssVar('--surface0'), actorBorder: cssVar('--mauve'), actorTextColor: cssVar('--text'),
+        signalColor: cssVar('--text'), signalTextColor: cssVar('--text'),
+        noteBkgColor: cssVar('--surface1'), noteTextColor: cssVar('--text'), noteBorderColor: cssVar('--surface2'),
+        labelBoxBkgColor: cssVar('--surface0'), labelTextColor: cssVar('--text'), loopTextColor: cssVar('--text'),
+        cScale0: cssVar('--mauve'), cScale1: cssVar('--blue'), cScale2: cssVar('--green'), cScale3: cssVar('--peach'),
+        cScale4: cssVar('--red'), cScale5: cssVar('--teal')
+      }
+    });
+    blocks.forEach(function (b) {
+      b.removeAttribute('data-processed');
+      b.innerHTML = '';
+      b.textContent = b.dataset.src;
+    });
+    mermaid.run({ nodes: blocks, suppressErrors: true });
+  }
+  syncHljs();
+  renderDiagrams();
+
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('redis-guide-theme', next); } catch (e) {}
+    syncHljs(); renderDiagrams();
+  });
+
+  // Contents: expand/collapse, scroll spy, mobile menu
+  var tocItems = Array.prototype.slice.call(document.querySelectorAll('.toc > ol > li'));
+  var expanded = false;
+  document.getElementById('expandBtn').addEventListener('click', function () {
+    expanded = !expanded;
+    tocItems.forEach(function (li) { li.classList.toggle('open', expanded); });
+    this.textContent = expanded ? 'Collapse' : 'Expand all';
+  });
+  var links = {};
+  document.querySelectorAll('.toc a[href^="#"]').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+  var targets = Array.prototype.slice.call(document.querySelectorAll('.part, .topic'));
+  var current = null;
+  function spy() {
+    var y = window.scrollY + 120, active = null;
+    for (var i = 0; i < targets.length; i++) { if (targets[i].offsetTop <= y) active = targets[i]; else break; }
+    var id = active && active.id;
+    if (id !== current) {
+      if (current && links[current]) links[current].classList.remove('active');
+      current = id;
+      if (id && links[id]) {
+        links[id].classList.add('active');
+        var li = links[id].closest('.toc > ol > li');
+        if (!expanded) tocItems.forEach(function (x) { x.classList.toggle('open', x === li); });
+      }
+    }
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    document.getElementById('progress').style.width = (h > 0 ? window.scrollY / h * 100 : 0) + '%';
+    document.getElementById('toTop').classList.toggle('show', window.scrollY > 800);
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+  spy();
+  document.getElementById('toTop').addEventListener('click', function () { window.scrollTo({ top: 0 }); });
+  document.getElementById('menuBtn').addEventListener('click', function () { document.body.classList.toggle('nav-open'); });
+  document.getElementById('toc').addEventListener('click', function (e) { if (e.target.closest('a')) document.body.classList.remove('nav-open'); });
+})();
+</script>
+</body>
+</html>

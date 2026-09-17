@@ -1,0 +1,77 @@
+name: Publish decks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/publish.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/**"
+  workflow_dispatch:
+
+# Never let two publishes race each other.
+concurrency:
+  group: publish-decks
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build decks to standalone HTML
+        run: npm run build
+
+      - name: Upload artifact (so a failed publish is still downloadable)
+        uses: actions/upload-artifact@v4
+        with:
+          name: decks
+          path: dist/
+          retention-days: 14
+
+      # Pull requests build only; nothing is published until the branch is merged.
+      - name: Publish to Cloudflare R2
+        if: github.event_name != 'pull_request'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 rejects some of the AWS CLI's newer default integrity headers.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          # Key prefix inside the bucket. The Worker serving sabo.sh/storage
+          # strips /storage, so "resource" gives /storage/resource/<name>.html
+          R2_PREFIX: ${{ vars.R2_PREFIX || 'resource' }}
+          PUBLIC_BASE: ${{ vars.PUBLIC_BASE || 'https://sabo.sh/storage' }}
+        run: |
+          set -euo pipefail
+          test -n "$R2_BUCKET" || { echo "::error::secret R2_BUCKET is not set"; exit 1; }
+
+          aws s3 sync dist "s3://${R2_BUCKET}/${R2_PREFIX}" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --content-type "text/html; charset=utf-8" \
+            --cache-control "public, max-age=300, must-revalidate" \
+            --no-progress --only-show-errors
+
+          echo "### Published decks" >> "$GITHUB_STEP_SUMMARY"
+          for f in dist/*.html; do
+            name="$(basename "$f")"
+            echo "- [${name}](${PUBLIC_BASE}/${R2_PREFIX}/${name})" >> "$GITHUB_STEP_SUMMARY"
+          done

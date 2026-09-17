@@ -1,0 +1,15 @@
+{
+  "name": "deckrun-slides",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Markdown decks for deckrun, built to standalone HTML and published to Cloudflare R2.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "deckrun lint \"src/**/*.md\" --max-warnings -1",
+    "dev": "deckrun"
+  },
+  "dependencies": {
+    "deckrun": "^1.6.0"
+  }
+}
