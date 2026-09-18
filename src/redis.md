@@ -9,6 +9,7 @@
 .mermaid svg .cluster rect {fill: var(--mantle) !important; stroke: var(--surface2) !important; }
 .mermaid svg .edgeLabel, .mermaid svg .edgeLabel p, .mermaid svg .labelBkg {background: var(--base) !important; background-color: var(--base) !important; }
 .mermaid svg .nodeLabel, .mermaid svg .nodeLabel p {color: var(--text) !important; }
+.pet {display: none !important; }
 </style>
 
 # Redis

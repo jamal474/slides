@@ -72,14 +72,21 @@ async function markdownFiles(dir) {
  * So: try the current shape, and fall back to the older one if the telltale
  * /__vendor/ link shows up.
  */
+/** deckrun drops three animated pixel pets along the bottom edge of a presented
+ * deck, fetched from GitHub at view time. Take them out of the published page. */
+function removePets(html) {
+  const stripped = html.replace(/\(function spawnPets\(\) \{[\s\S]*?\n\s*\}\)\(\);/, "");
+  return stripped.includes("vscode-pets") ? html : stripped;
+}
+
 function buildStandalone(slides, title, opts) {
   const fonts = { head: opts.head, body: opts.body };
   const presentation = { template: opts.template, transition: opts.transition, standalone: true };
 
   const withSize = generateHtml(slides, title, false, opts.theme, undefined, fonts, presentation);
-  if (!withSize.includes("/__vendor/")) return withSize;
+  if (!withSize.includes("/__vendor/")) return removePets(withSize);
 
-  return generateHtml(slides, title, false, opts.theme, fonts, presentation);
+  return removePets(generateHtml(slides, title, false, opts.theme, fonts, presentation));
 }
 
 const strict = !process.argv.includes("--no-strict");
